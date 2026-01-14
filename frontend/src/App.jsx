@@ -1,10 +1,15 @@
+import styled from "styled-components"
 
+const Conaitner = styled.div`
+  height: 100vh;  
+  width: 100vw;
+`
 
 const App = () => {
   return (
-    <div>
+    <Conaitner>
       Welcome
-    </div>
+    </Conaitner>
   )
 }
 
