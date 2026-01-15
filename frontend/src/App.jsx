@@ -1,6 +1,7 @@
 import styled from "styled-components"
 import LandingPage from './pages/LandingPage.jsx'
 import DashboardPage from "./pages/DashboardPage.jsx"
+import AuthPage from "./pages/AuthPage.jsx"
 
 const Conaitner = styled.div`
   height: 100vh;
@@ -11,7 +12,7 @@ const Conaitner = styled.div`
 
 const App = () => {
   return (
-    <DashboardPage/>
+    <AuthPage/>
   )
 }
 
