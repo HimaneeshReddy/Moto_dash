@@ -12,7 +12,8 @@ const Conaitner = styled.div`
 
 const App = () => {
   return (
-    <AuthPage/>
+
+    <LandingPage/>
   )
 }
 
