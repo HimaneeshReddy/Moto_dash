@@ -1,11 +1,15 @@
 import React from 'react';
 import styled, { keyframes, css } from 'styled-components';
 import { Download, Play, ArrowRight } from 'lucide-react';
+import img1 from '../Images/Image1.png'
+import img2 from '../Images/Image2.png'
+import img3 from '../Images/Image3.png'
+import DashFlowLogo from '../Images/logo.png'; 
 
 // --- Animations ---
 const float = keyframes`
   0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-30px); }
+  50% { transform: translateY(-20px); } /* Reduced for tighter fit */
 `;
 
 const fadeIn = keyframes`
@@ -16,27 +20,25 @@ const fadeIn = keyframes`
 // --- Styled Components ---
 const HeroContainer = styled.section`
   position: relative;
-  min-height: 100vh;
+  height: 100vh; /* Fixed height to prevent scrolling */
+  width: 100vw;
   background-color: #f0f7ff;
-  font-family: 'Inter', sans-serif;
-  overflow: hidden;
+  font-family: 'Inter', -apple-system, sans-serif;
+  overflow: hidden; /* Strict overflow control */
   display: flex;
   flex-direction: column;
 `;
 
 const BlueBackgroundShape = styled.div`
   position: absolute;
-  right: -10%;
+  right: -5%;
   top: 0;
   height: 100%;
-  width: 50%;
+  width: 45%;
   background-color: #3b82f6;
-  border-bottom-left-radius: 400px;
+  border-bottom-left-radius: 350px;
   z-index: 0;
-  display: none;
-  @media (min-width: 1024px) {
-    display: block;
-  }
+  @media (max-width: 1024px) { display: none; }
 `;
 
 const Navbar = styled.nav`
@@ -45,40 +47,35 @@ const Navbar = styled.nav`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 40px 80px;
+  padding: 0 80px; /* Removed vertical padding, controlled by LogoWrapper */
+  height: 120px; /* Fixed nav height */
+  @media (max-width: 768px) { padding: 0 30px; height: 80px; }
 `;
 
-const Logo = styled.div`
+const LogoWrapper = styled.div`
   display: flex;
   align-items: center;
-  gap: 12px;
-  font-size: 24px;
-  font-weight: 800;
-  color: #1e293b;
-
-  .icon {
-    width: 44px;
-    height: 44px;
-    background: #3b82f6;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    box-shadow: 0 10px 20px rgba(59, 130, 246, 0.3);
+  height: 150px; /* Scaled down slightly to save vertical space */
+  
+  img {
+    height: 100%;
+    width: auto;
+    object-fit: contain;
   }
 `;
 
 const NavLinks = styled.div`
   display: flex;
-  gap: 40px;
+  gap: 35px;
+  @media (max-width: 900px) { display: none; }
+  
   a {
     text-decoration: none;
-    color: #64748b;
-    font-weight: 600;
-    font-size: 14px;
-    transition: color 0.3s;
-    &:hover { color: #3b82f6; }
+    color: #ffffff; /* Contrast against blue background shape */
+    font-weight: 620;
+    font-size: 16px;
+    transition: color 0.4s;
+    &:hover { color: #0f172a; }
   }
 `;
 
@@ -86,180 +83,192 @@ const ContentWrapper = styled.div`
   position: relative;
   z-index: 5;
   display: flex;
-  flex: 1;
+  flex: 1; /* Takes up remaining height */
   padding: 0 80px;
   align-items: center;
+  justify-content: space-between;
+  margin-top: -40px; /* Visual centering */
+  
+  @media (max-width: 1024px) { 
+    flex-direction: column; 
+    padding: 20px 30px; 
+    text-align: center;
+    justify-content: center;
+  }
 `;
 
 const LeftSection = styled.div`
   flex: 1;
-  max-width: 600px;
-  animation: ${fadeIn} 1s ease-out;
+  max-width: 550px;
+  animation: ${fadeIn} 0.8s ease-out forwards;
 `;
 
 const Slogan = styled.h1`
-  font-size: 72px;
+  font-size: clamp(40px, 5vw, 72px); /* Responsive font size */
   font-weight: 800;
-  color: #1e293b;
+  color: #0f172a;
   line-height: 1.1;
-  margin-bottom: 24px;
+  margin-bottom: 20px;
 
   span.depth {
     position: relative;
     display: inline-block;
-    padding-bottom: 8px;
     &::after {
       content: '';
       position: absolute;
       left: 0;
-      bottom: 12px;
+      bottom: 6px;
       width: 100%;
       height: 12px;
-      background: rgba(59, 130, 246, 0.2);
+      background: rgba(59, 130, 246, 0.15);
       z-index: -1;
     }
-    border-bottom: 8px solid #1e293b;
+    border-bottom: 6px solid #0f172a;
+    padding-bottom: 2px;
   }
 `;
 
 const Description = styled.p`
   font-size: 18px;
-  color: #64748b;
-  line-height: 1.8;
-  margin-bottom: 40px;
+  color: #475569;
+  line-height: 1.6;
+  max-width: 480px;
+  margin-bottom: 35px;
+  @media (max-width: 1024px) { margin-left: auto; margin-right: auto; }
 `;
 
-const ButtonGroup = styled.div`
+const ActionGroup = styled.div`
   display: flex;
-  gap: 20px;
+  gap: 15px;
+  @media (max-width: 1024px) { justify-content: center; }
 `;
 
-const PrimaryButton = styled.button`
+const PrimaryBtn = styled.button`
   background: #3b82f6;
   color: white;
-  padding: 18px 36px;
+  padding: 16px 30px;
   border-radius: 14px;
   border: none;
   font-weight: 700;
+  font-size: 15px;
   display: flex;
   align-items: center;
   gap: 10px;
   cursor: pointer;
-  box-shadow: 0 20px 40px rgba(59, 130, 246, 0.25);
-  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  box-shadow: 0 10px 25px rgba(59, 130, 246, 0.2);
+  transition: all 0.3s ease;
 
   &:hover {
-    transform: translateY(-5px);
+    transform: translateY(-3px);
     background: #2563eb;
-    svg { transform: translateX(5px); }
+    svg { transform: translateX(3px); }
   }
-  
   svg { transition: transform 0.3s; }
 `;
 
-const SecondaryButton = styled(PrimaryButton)`
+const SecondaryBtn = styled(PrimaryBtn)`
   background: #dbeafe;
   color: #3b82f6;
   box-shadow: none;
-  &:hover {
-    background: #bfdbfe;
-    transform: translateY(-5px);
-  }
+  &:hover { background: #bfdbfe; transform: translateY(-3px); }
 `;
 
 const RightSection = styled.div`
   flex: 1;
   display: flex;
-  gap: 24px;
-  justify-content: center;
-  perspective: 1000px;
+  gap: 20px;
+  justify-content: flex-end;
+  height: 80%; /* Limit card area height */
+  align-items: center;
+  
+  @media (max-width: 1024px) { 
+    width: 100%;
+    justify-content: center; 
+    margin-top: 30px; 
+    height: auto;
+  }
 `;
 
 const CardColumn = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 24px;
-  animation: ${float} ${props => props.duration || '6s'} ease-in-out infinite;
-  animation-delay: ${props => props.delay || '0s'};
-  margin-top: ${props => props.offset || '0px'};
+  gap: 20px;
+  animation: ${float} ${props => props.speed || '6s'} ease-in-out infinite;
+  margin-top: ${props => props.top || '0px'};
 `;
 
 const Card = styled.div`
-  width: 240px;
-  height: ${props => props.tall ? '300px' : '240px'};
-  background: ${props => props.bg || 'white'};
-  border-radius: 32px;
-  padding: 24px;
-  box-shadow: 0 30px 60px rgba(0,0,0,0.12);
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
+  width: clamp(180px, 18vw, 250px);
+  height: ${props => props.tall ? 'clamp(220px, 22vw, 320px)' : 'clamp(180px, 18vw, 250px)'};
+  background: white;
+  border-radius: 28px;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.12);
+  overflow: hidden;
   
-  ${props => props.dashed && css`
-    border: 3px dashed rgba(255,255,255,0.3);
-    background: transparent;
-  `}
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
 `;
 
-// --- Main Component ---
-const DashFlow = () => {
+const DashFlowHero = () => {
   return (
     <HeroContainer>
       <BlueBackgroundShape />
       
       <Navbar>
-        <Logo>
-          <div className="icon">D</div>
-          DashFlow
-        </Logo>
+        <LogoWrapper>
+          <img src={DashFlowLogo} alt="DashFlow" />
+        </LogoWrapper>
+        
         <NavLinks>
-          <a href="#top">Top</a>
-          <a href="#everyone">For Everyone</a>
-          <a href="#features">Features</a>
-          <a href="#preview">Preview</a>
-          <a href="#license">License</a>
+          {['Top', 'For Everyone', 'Features', 'Preview', 'License'].map(link => (
+            <a key={link} href={`#${link.toLowerCase()}`}>{link}</a>
+          ))}
         </NavLinks>
-        <button style={{
-          background: 'white', border: 'none', padding: '12px 24px', 
-          borderRadius: '12px', fontWeight: 'bold', color: '#3b82f6',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.05)', cursor: 'pointer'
-        }}>
-          Download
-        </button>
       </Navbar>
 
       <ContentWrapper>
         <LeftSection>
           <Slogan>
-            Better Design <br />
-            For <span className="depth">DashFlow Content</span>
+           Visualize. <br />
+           Analyze.<span className="depth">Decide.</span>
           </Slogan>
           <Description>
-            DashFlow social media content templates for branding, marketing, 
-            insights, and more. Free for personal and commercial use!
+            One upload, endless insights — DashFlow reads your data, 
+            understands it, and instantly creates the perfect dashboard.
           </Description>
-          <ButtonGroup>
-            <PrimaryButton>
-              <Download size={20} />
+          
+          <ActionGroup>
+            <PrimaryBtn>
+              <Download size={18} />
               Explore Now
-              <ArrowRight size={20} />
-            </PrimaryButton>
-            <SecondaryButton>
-              <Play size={20} fill="currentColor" />
+              <ArrowRight size={18} />
+            </PrimaryBtn>
+            <SecondaryBtn>
+              <Play size={18} fill="currentColor" />
               See in Action
-            </SecondaryButton>
-          </ButtonGroup>
+            </SecondaryBtn>
+          </ActionGroup>
         </LeftSection>
 
         <RightSection>
-          <CardColumn duration="7s">
-            <Card bg="#14b8a6" />
-            <Card bg="#4338ca" tall />
+          {/* Column 1 with 1 image */}
+          <CardColumn speed="7s">
+            <Card>
+              <img src={img1} alt="Feature 1" />
+            </Card>
           </CardColumn>
-          <CardColumn duration="9s" offset="60px" delay="-2s">
-            <Card bg="#1e293b" tall />
-            <Card bg="#fb7185" />
-            <Card dashed />
+          
+          {/* Column 2 with 2 images */}
+          <CardColumn speed="9s" top="30px">
+            <Card tall>
+              <img src={img2} alt="Feature 2" />
+            </Card>
+            <Card>
+              <img src={img3} alt="Feature 3" />
+            </Card>
           </CardColumn>
         </RightSection>
       </ContentWrapper>
@@ -267,4 +276,4 @@ const DashFlow = () => {
   );
 };
 
-export default DashFlow;
+export default DashFlowHero;
