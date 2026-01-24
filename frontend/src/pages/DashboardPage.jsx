@@ -303,6 +303,8 @@ const RecentCardArea = styled.div`
     display: flex;
     gap: 40px;
     flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
 `;
 
 
