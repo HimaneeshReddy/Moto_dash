@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import styled, { keyframes } from 'styled-components';
-import { Download, Play, ArrowRight, Mail, Phone, MapPin, Users, Target, Award } from 'lucide-react';
+import { Download, Play, ArrowRight, Mail, Phone, MapPin, CheckCircle, Zap, Shield, TrendingUp, Target, Award } from 'lucide-react';
 import logo from '../Images/logo.png';
 
 const float = keyframes`
@@ -63,15 +63,11 @@ const Navbar = styled.nav`
 `;
 
 const LogoWrapper = styled.div`
- display: flex;
+  display: flex;
   align-items: center;
-  height: 100px; /* <--- Change this value to reduce size (e.g., 35px or 40px) */
-
-  img {
-    height: 50%;
-    width: auto;
-    object-fit: contain;
-  }
+  font-size: 24px;
+  font-weight: 800;
+  color: #3b82f6;
 `;
 
 const NavLinks = styled.div`
@@ -82,7 +78,7 @@ const NavLinks = styled.div`
     gap: 20px;
   }
 
-  @media (max-width: 600px) {
+  @media (max-width: 768px) {
     display: none;
   }
 `;
@@ -288,7 +284,7 @@ const SectionSubtitle = styled.p`
   line-height: 1.6;
 `;
 
-const AboutGrid = styled.div`
+const ProductGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: 40px;
@@ -296,7 +292,7 @@ const AboutGrid = styled.div`
   margin: 0 auto;
 `;
 
-const AboutCard = styled.div`
+const ProductCard = styled.div`
   background: white;
   padding: 40px;
   border-radius: 24px;
@@ -335,6 +331,95 @@ const CardDescription = styled.p`
   font-size: 16px;
   color: #64748b;
   line-height: 1.6;
+`;
+
+const FeaturesList = styled.div`
+  max-width: 900px;
+  margin: 0 auto;
+  display: grid;
+  gap: 20px;
+`;
+
+const FeatureItem = styled.div`
+  background: white;
+  padding: 30px;
+  border-radius: 20px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.06);
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+  transition: all 0.3s ease;
+
+  &:hover {
+    transform: translateX(10px);
+    box-shadow: 0 12px 32px rgba(59, 130, 246, 0.12);
+  }
+`;
+
+const FeatureIconWrapper = styled.div`
+  min-width: 50px;
+  height: 50px;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  svg {
+    color: white;
+  }
+`;
+
+const FeatureContent = styled.div`
+  flex: 1;
+`;
+
+const FeatureTitle = styled.h4`
+  font-size: 20px;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 8px;
+`;
+
+const FeatureDescription = styled.p`
+  font-size: 16px;
+  color: #64748b;
+  line-height: 1.6;
+`;
+
+// UPDATED: Forced 2x2 Grid Layout
+const TeamPhotosContainer = styled.div`
+  max-width: 1000px;
+  margin: 0 auto;
+  display: grid;
+  // This creates strictly 2 equal columns
+  grid-template-columns: repeat(2, 1fr); 
+  gap: 30px;
+
+  @media (max-width: 600px) {
+    // Stack to 1 column on mobile devices
+    grid-template-columns: 1fr;
+  }
+`;
+
+const TeamPhoto = styled.div`
+  width: 100%;
+  height: 300px;
+  border-radius: 24px;
+  overflow: hidden;
+  box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+
+  &:hover {
+    transform: translateY(-10px);
+    box-shadow: 0 25px 50px rgba(59, 130, 246, 0.2);
+  }
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
 `;
 
 const ContactGrid = styled.div`
@@ -391,7 +476,7 @@ const DashFlowHero = () => {
 
   useEffect(() => {
     const handleScroll = () => {
-      const sections = ['dashboard', 'about', 'contact'];
+      const sections = ['dashboard', 'product', 'features', 'about', 'contact'];
       const scrollPosition = window.scrollY + 150;
 
       for (const section of sections) {
@@ -422,9 +507,7 @@ const DashFlowHero = () => {
     <PageContainer>
       <Navbar>
         <LogoWrapper>
-          <div style={{ fontSize: '24px', fontWeight: '800', color: '#3b82f6' }}>
-            <img src={logo} alt="DashFlow Logo" style={{ height: '190px', verticalAlign: 'middle' }} />
-          </div>
+          <img src={logo} alt="DashFlow Logo" style={{ height: '200px' }} />
         </LogoWrapper>
 
         <NavLinks>
@@ -435,14 +518,14 @@ const DashFlowHero = () => {
             Dashboard
           </NavLink>
           <NavLink
-            active={activeSection === 'contact'}
-            onClick={() => scrollToSection('contact')}
+            active={activeSection === 'product'}
+            onClick={() => scrollToSection('product')}
           >
-            Product Page
+            Product
           </NavLink>
           <NavLink
-            active={activeSection === 'contact'}
-            onClick={() => scrollToSection('contact')}
+            active={activeSection === 'features'}
+            onClick={() => scrollToSection('features')}
           >
             Features
           </NavLink>
@@ -501,17 +584,16 @@ const DashFlowHero = () => {
         </ContentWrapper>
       </HeroContainer>
 
-      <Section id="about" bgTheme="light">
+      <Section id="product" bgTheme="light">
         <SectionTitle>
-          About <span>Us</span>
+          Our <span>Product</span>
         </SectionTitle>
         <SectionSubtitle>
-          We're on a mission to transform how businesses interact with their data.
-          Our intelligent platform makes complex analytics accessible to everyone.
+          Discover the power of intelligent data visualization with DashFlow's innovative approach to analytics.
         </SectionSubtitle>
 
-        <AboutGrid>
-          <AboutCard>
+        <ProductGrid>
+          <ProductCard>
             <IconWrapper>
               <Target size={28} />
             </IconWrapper>
@@ -520,20 +602,9 @@ const DashFlowHero = () => {
               To democratize data analytics by making powerful insights accessible to businesses
               of all sizes. We believe everyone should be able to make data-driven decisions.
             </CardDescription>
-          </AboutCard>
+          </ProductCard>
 
-          <AboutCard>
-            <IconWrapper>
-              <Users size={28} />
-            </IconWrapper>
-            <CardTitle>Our Team</CardTitle>
-            <CardDescription>
-              A diverse group of data scientists, engineers, and designers passionate about
-              creating intuitive solutions. We combine technical excellence with user-first design.
-            </CardDescription>
-          </AboutCard>
-
-          <AboutCard>
+          <ProductCard>
             <IconWrapper>
               <Award size={28} />
             </IconWrapper>
@@ -542,8 +613,104 @@ const DashFlowHero = () => {
               Innovation, simplicity, and reliability drive everything we do. We're committed
               to building tools that are powerful yet easy to use, with your success in mind.
             </CardDescription>
-          </AboutCard>
-        </AboutGrid>
+          </ProductCard>
+        </ProductGrid>
+      </Section>
+
+      <Section id="features" bgTheme="dark">
+        <SectionTitle>
+          Key <span>Features</span>
+        </SectionTitle>
+        <SectionSubtitle>
+          Everything you need to transform your data into actionable insights.
+        </SectionSubtitle>
+
+        <FeaturesList>
+          <FeatureItem>
+            <FeatureIconWrapper>
+              <CheckCircle size={24} />
+            </FeatureIconWrapper>
+            <FeatureContent>
+              <FeatureTitle>Instant Dashboard Generation</FeatureTitle>
+              <FeatureDescription>
+                Upload your data and watch as DashFlow automatically creates beautiful, insightful dashboards in seconds.
+              </FeatureDescription>
+            </FeatureContent>
+          </FeatureItem>
+
+          <FeatureItem>
+            <FeatureIconWrapper>
+              <Zap size={24} />
+            </FeatureIconWrapper>
+            <FeatureContent>
+              <FeatureTitle>Smart Data Recognition</FeatureTitle>
+              <FeatureDescription>
+                Our AI understands your data structure and automatically suggests the most relevant visualizations.
+              </FeatureDescription>
+            </FeatureContent>
+          </FeatureItem>
+
+          <FeatureItem>
+            <FeatureIconWrapper>
+              <TrendingUp size={24} />
+            </FeatureIconWrapper>
+            <FeatureContent>
+              <FeatureTitle>Real-Time Analytics</FeatureTitle>
+              <FeatureDescription>
+                Monitor your metrics in real-time with live data updates and dynamic visualizations.
+              </FeatureDescription>
+            </FeatureContent>
+          </FeatureItem>
+
+          <FeatureItem>
+            <FeatureIconWrapper>
+              <Shield size={24} />
+            </FeatureIconWrapper>
+            <FeatureContent>
+              <FeatureTitle>Enterprise-Grade Security</FeatureTitle>
+              <FeatureDescription>
+                Your data is protected with bank-level encryption and industry-leading security protocols.
+              </FeatureDescription>
+            </FeatureContent>
+          </FeatureItem>
+        </FeaturesList>
+      </Section>
+
+      <Section id="about" bgTheme="light">
+        <SectionTitle>
+          Our <span>Team</span>
+        </SectionTitle>
+        <SectionSubtitle>
+          Meet the passionate team behind DashFlow, working from amazing locations around the world.
+        </SectionSubtitle>
+
+        {/* 2x2 Grid Layout for 4 Images */}
+        <TeamPhotosContainer>
+          <TeamPhoto>
+            <img
+              src="https://images.pexels.com/photos/380769/pexels-photo-380769.jpeg?auto=compress&cs=tinysrgb&w=800"
+              alt="Office space 1"
+            />
+          </TeamPhoto>
+          <TeamPhoto>
+            <img
+              src="https://images.pexels.com/photos/1181406/pexels-photo-1181406.jpeg?auto=compress&cs=tinysrgb&w=800"
+              alt="Office space 2"
+            />
+          </TeamPhoto>
+          <TeamPhoto>
+            <img
+              src="https://images.pexels.com/photos/1181396/pexels-photo-1181396.jpeg?auto=compress&cs=tinysrgb&w=800"
+              alt="Office space 3"
+            />
+          </TeamPhoto>
+          <TeamPhoto>
+            <img
+              src="https://images.pexels.com/photos/1181622/pexels-photo-1181622.jpeg?auto=compress&cs=tinysrgb&w=800"
+              alt="Office space 4"
+            />
+          </TeamPhoto>
+        </TeamPhotosContainer>
       </Section>
 
       <Section id="contact" bgTheme="dark">
