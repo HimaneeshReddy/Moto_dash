@@ -10,7 +10,7 @@ const Container = styled.div`
   box-shadow: 0 4px 12px rgba(0,0,0,0.06);
   transition: transform 0.2s;
 
-  width: 500px;
+  min-width: 500px;
   height: 360px;
 
   &:hover {
