@@ -4,12 +4,13 @@ import HomeOutlinedIcon from '@mui/icons-material/HomeOutlined';
 import PowerSettingsNewIcon from '@mui/icons-material/PowerSettingsNew';
 import FolderOpenOutlinedIcon from '@mui/icons-material/FolderOpenOutlined';
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
-import ChatBubbleOutlineOutlinedIcon from '@mui/icons-material/ChatBubbleOutlineOutlined';
+import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import ManageAccountsOutlinedIcon from '@mui/icons-material/ManageAccountsOutlined';
 import { useState } from "react";
 import Home from '../Components/Home.jsx';
 import Profile from "../Components/Profile.jsx";
 import CreateOptions from "../Components/CreateOptions.jsx";
+import HelpCenter from "../Components/HelpCenter.jsx";
 
 /* ---------------- STYLES ---------------- */
 
@@ -124,9 +125,12 @@ const DashboardPage = () => {
               Create
             </OptionCard>
 
-            <OptionCard>
-              <IconCard><ChatBubbleOutlineOutlinedIcon /></IconCard>
-              Feedback
+            <OptionCard
+              active={activePage === "help"}
+              onClick={() => setActivePage("help")}
+            >
+              <IconCard><HelpOutlineIcon /></IconCard>
+              Help Center
             </OptionCard>
           </SideBarOptionsTop>
 
@@ -151,6 +155,7 @@ const DashboardPage = () => {
         {activePage === "home" && <Home setActivePage={setActivePage} />}
         {activePage === "profile" && <Profile />}
         {activePage === "create" && <CreateOptions />}
+        {activePage === "help" && <HelpCenter />}
       </Contents>
     </Container>
   );
