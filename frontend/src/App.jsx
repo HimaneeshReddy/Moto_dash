@@ -13,7 +13,7 @@ const Conaitner = styled.div`
 const App = () => {
   return (
 
-    <LandingPage/>
+    <DashboardPage/>
   )
 }
 

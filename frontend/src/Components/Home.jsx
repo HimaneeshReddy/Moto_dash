@@ -18,42 +18,42 @@ import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 //Dummy Data
 
 const dashboardData = [
-  {
-    id: 1,
-    image: img1,
-    title: "Marketing Overview",
-    description: "Last edited 2 hours ago",
-  },
-  {
-    id: 2,
-    image: img2,
-    title: "Sales Performance",
-    description: "Last edited yesterday",
-  },
-  {
-    id: 3,
-    image: img3,
-    title: "User Analytics",
-    description: "Last edited 3 days ago",
-  },
-  {
-    id: 4,
-    image: img1,
-    title: "Revenue Dashboard",
-    description: "Last edited 5 hours ago",
-  },
-  {
-    id: 5,
-    image: img2,
-    title: "Product Insights",
-    description: "Last edited last week",
-  },
-  {
-    id: 6,
-    image: img3,
-    title: "Campaign Tracking",
-    description: "Last edited 10 minutes ago",
-  },
+    {
+        id: 1,
+        image: img1,
+        title: "Marketing Overview",
+        description: "Last edited 2 hours ago",
+    },
+    {
+        id: 2,
+        image: img2,
+        title: "Sales Performance",
+        description: "Last edited yesterday",
+    },
+    {
+        id: 3,
+        image: img3,
+        title: "User Analytics",
+        description: "Last edited 3 days ago",
+    },
+    {
+        id: 4,
+        image: img1,
+        title: "Revenue Dashboard",
+        description: "Last edited 5 hours ago",
+    },
+    {
+        id: 5,
+        image: img2,
+        title: "Product Insights",
+        description: "Last edited last week",
+    },
+    {
+        id: 6,
+        image: img3,
+        title: "Campaign Tracking",
+        description: "Last edited 10 minutes ago",
+    },
 ];
 
 
@@ -256,55 +256,55 @@ const ViewMoreButton = styled.button`
 
 
 
-const Home = () => {
+const Home = ({ setActivePage }) => {
     const [showFilter, setShowFilter] = useState(false);
     return (
-            <MainContent>
-                <Header>
-                    <HeaderLeft>
-                        <SearchOutlinedIcon sx={{ color: '#879ec7' }} />
-                        <SearchBar placeholder="Search..." />
-                    </HeaderLeft>
-                    <HeaderRight>
-                        <NotificationsNoneOutlinedIcon sx={{ color: '#64748B', cursor: 'pointer' }} />
-                        <AccountCircleOutlinedIcon sx={{ color: '#64748B', cursor: 'pointer', fontSize: '32px' }} />
-                    </HeaderRight>
-                </Header>
-                <ContentArea>
-                    <ContentHeader>
-                        <SectionTitle>Recent Work</SectionTitle>
-                        <Options>
-                            <PrimaryButton>
-                                <AddCircleOutlineIcon sx={{fontSize: 18}}/> Create New
-                            </PrimaryButton>
-                            <FilterWrapper>
-                                <FilterButton onClick={()=>setShowFilter(!showFilter)}>
-                                    Filter <KeyboardArrowDownOutlinedIcon sx={{fontSize: 18}} />
-                                </FilterButton>
-                                {showFilter && (
-                                    <FilterDropDown>
-                                        <FilterItem onClick={()=>setShowFilter(false)}>All Projects</FilterItem>
-                                        <FilterItem onClick={()=>setShowFilter(false)}>Recent</FilterItem>
-                                        <FilterItem onClick={()=>setShowFilter(false)}>Last 7 Days</FilterItem>
-                                        <FilterItem onClick={()=>setShowFilter(false)}>Last 30 Days</FilterItem>
-                                    </FilterDropDown>
-                                )}
-                            </FilterWrapper>
-                        </Options>
-                    </ContentHeader> 
-                    <RecentCardArea>
-                        {dashboardData
-                            .map((item) => (
-                                <RecentCard 
+        <MainContent>
+            <Header>
+                <HeaderLeft>
+                    <SearchOutlinedIcon sx={{ color: '#879ec7' }} />
+                    <SearchBar placeholder="Search..." />
+                </HeaderLeft>
+                <HeaderRight>
+                    <NotificationsNoneOutlinedIcon sx={{ color: '#64748B', cursor: 'pointer' }} />
+                    <AccountCircleOutlinedIcon sx={{ color: '#64748B', cursor: 'pointer', fontSize: '32px' }} />
+                </HeaderRight>
+            </Header>
+            <ContentArea>
+                <ContentHeader>
+                    <SectionTitle>Recent Work</SectionTitle>
+                    <Options>
+                        <PrimaryButton onClick={() => setActivePage("create")}>
+                            <AddCircleOutlineIcon sx={{ fontSize: 18 }} /> Create New
+                        </PrimaryButton>
+                        <FilterWrapper>
+                            <FilterButton onClick={() => setShowFilter(!showFilter)}>
+                                Filter <KeyboardArrowDownOutlinedIcon sx={{ fontSize: 18 }} />
+                            </FilterButton>
+                            {showFilter && (
+                                <FilterDropDown>
+                                    <FilterItem onClick={() => setShowFilter(false)}>All Projects</FilterItem>
+                                    <FilterItem onClick={() => setShowFilter(false)}>Recent</FilterItem>
+                                    <FilterItem onClick={() => setShowFilter(false)}>Last 7 Days</FilterItem>
+                                    <FilterItem onClick={() => setShowFilter(false)}>Last 30 Days</FilterItem>
+                                </FilterDropDown>
+                            )}
+                        </FilterWrapper>
+                    </Options>
+                </ContentHeader>
+                <RecentCardArea>
+                    {dashboardData
+                        .map((item) => (
+                            <RecentCard
                                 key={item.id}
                                 item={item}
-                                />
-                        ))}         
-                    </RecentCardArea>
-                    <ViewMoreButtonArea><ViewMoreButton><ArrowDownwardIcon /> View More</ViewMoreButton></ViewMoreButtonArea>
-                    
-                </ContentArea>
-            </MainContent>
+                            />
+                        ))}
+                </RecentCardArea>
+                <ViewMoreButtonArea><ViewMoreButton><ArrowDownwardIcon /> View More</ViewMoreButton></ViewMoreButtonArea>
+
+            </ContentArea>
+        </MainContent>
     )
 }
 
