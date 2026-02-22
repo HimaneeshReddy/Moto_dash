@@ -92,8 +92,16 @@ const Contents = styled.div`
 
 /* ---------------- COMPONENT ---------------- */
 
+import { useNavigate } from "react-router-dom";
+
 const DashboardPage = () => {
   const [activePage, setActivePage] = useState("home");
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    // Here you would typically clear auth tokens
+    navigate("/");
+  };
 
   return (
     <Container>
@@ -143,7 +151,7 @@ const DashboardPage = () => {
               Profile
             </OptionCard>
 
-            <OptionCard>
+            <OptionCard onClick={handleLogout}>
               <IconCard><PowerSettingsNewIcon /></IconCard>
               Logout
             </OptionCard>

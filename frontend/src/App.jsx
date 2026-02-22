@@ -1,19 +1,15 @@
 import styled from "styled-components"
-import LandingPage from './pages/LandingPage.jsx'
+import { Routes, Route, Navigate } from 'react-router-dom'
 import DashboardPage from "./pages/DashboardPage.jsx"
 import AuthPage from "./pages/AuthPage.jsx"
 
-const Conaitner = styled.div`
-  height: 100vh;
-  width: 100vw;
-  padding: 0;
-  margin: 0;
-`
-
 const App = () => {
   return (
-
-    <DashboardPage/>
+    <Routes>
+      <Route path="/" element={<AuthPage />} />
+      <Route path="/dashboard" element={<DashboardPage />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   )
 }
 

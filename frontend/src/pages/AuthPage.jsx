@@ -1,6 +1,11 @@
 import React, { useState } from "react";
 import styled from "styled-components";
 import bg from '../Images/background.png';
+import { useNavigate } from "react-router-dom";
+import EmailIcon from '@mui/icons-material/Email';
+import LockIcon from '@mui/icons-material/Lock';
+import PersonIcon from '@mui/icons-material/Person';
+import InputAdornment from '@mui/material/InputAdornment';
 
 const PageContainer = styled.div`
   width: 100vw;
@@ -9,6 +14,7 @@ const PageContainer = styled.div`
   overflow: hidden;
   background-color: #ffffff;
   display: flex;
+  font-family: 'Inter', sans-serif;
 `;
 
 const FormsLayer = styled.div`
@@ -30,6 +36,7 @@ const FormSide = styled.div`
   align-items: center;
   padding: 0 80px; 
   box-sizing: border-box;
+  background-color: #fff;
 `;
 
 const Overlay = styled.div`
@@ -43,9 +50,9 @@ const Overlay = styled.div`
   background-size: cover;
   background-position: ${props => (props.isSignUp ? "right center" : "left center")};
   transition: clip-path 0.8s ease-in-out, background-position 0.8s ease-in-out;
-  clip-path: ${props => 
-    props.isSignUp 
-      ? "polygon(57.5% 0, 100% 0, 100% 100%, 48.5% 100%)" 
+  clip-path: ${props =>
+    props.isSignUp
+      ? "polygon(57.5% 0, 100% 0, 100% 100%, 48.5% 100%)"
       : "polygon(0 0, 51.5% 0, 42.5% 100%, 0 100%)"
   };
 `;
@@ -53,7 +60,7 @@ const Overlay = styled.div`
 const BlackTint = styled.div`
   position: absolute;
   inset: 0;
-  background-color: rgba(0, 0, 0, 0.5);
+  background-color: rgba(0, 0, 0, 0.4);
   z-index: 1;
 `;
 
@@ -92,75 +99,158 @@ const OverlayPanel = styled.div`
 
 // --- Components ---
 const Title = styled.h1`
-  font-size: 32px;
-  font-weight: bold;
-  margin-bottom: 10px;
-  color: ${props => props.dark ? "#333" : "#fff"};
+  font-size: 36px;
+  font-weight: 800;
+  margin-bottom: 12px;
+  color: ${props => props.dark ? "#1C2434" : "#fff"};
+  letter-spacing: -0.5px;
 `;
 
 const Subtitle = styled.p`
   font-size: 16px;
-  margin-bottom: 30px;
-  color: ${props => props.dark ? "#666" : "#e0e0e0"};
-  max-width: 300px;
+  margin-bottom: 40px;
+  color: ${props => props.dark ? "#64748B" : "#e0e0e0"};
+  max-width: 320px;
   text-align: center;
+  line-height: 1.5;
+`;
+
+const InputGroup = styled.div`
+  position: relative;
+  width: 100%;
+  max-width: 380px;
+  margin-bottom: 20px;
+`;
+
+const IconWrapper = styled.div`
+  position: absolute;
+  top: 50%;
+  left: 15px;
+  transform: translateY(-50%);
+  color: #94A3B8;
+  display: flex;
+  align-items: center;
+  pointer-events: none;
 `;
 
 const Input = styled.input`
-  background-color: #f3f4f6;
-  border: 1px solid #ddd;
-  padding: 12px 15px;
-  margin: 8px 0;
+  background-color: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  padding: 14px 15px 14px 45px; /* Left padding for icon */
   width: 100%;
-  max-width: 350px;
-  border-radius: 8px;
+  border-radius: 10px;
   outline: none;
-  &:focus { border-color: #2563EB; }
+  font-size: 15px;
+  color: #334155;
+  transition: all 0.2s ease;
+
+  &::placeholder {
+    color: #94A3B8;
+  }
+
+  &:focus { 
+    border-color: #3457B2; 
+    background-color: #fff;
+    box-shadow: 0 0 0 4px rgba(52, 87, 178, 0.1);
+  }
 `;
 
 const Button = styled.button`
-  background-color: #2563EB;
+  background-color: #3457B2;
   color: white;
   border: none;
-  border-radius: 8px;
-  padding: 12px 40px;
-  font-size: 14px;
+  border-radius: 10px;
+  padding: 14px 40px;
+  font-size: 15px;
   font-weight: 600;   
   cursor: pointer;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-  transition: transform 0.1s;
-  &:hover { background-color: #1D4ED8; }
-  &:active { transform: scale(0.98); }
+  box-shadow: 0 4px 6px -1px rgba(52, 87, 178, 0.3);
+  transition: all 0.2s ease;
+  letter-spacing: 0.5px;
+  margin-top: 20px;
+  width: 100%;
+  max-width: 380px;
+
+  &:hover { 
+    background-color: #2a458c; 
+    transform: translateY(-1px);
+    box-shadow: 0 6px 10px -1px rgba(52, 87, 178, 0.4);
+  }
+  
+  &:active { 
+    transform: translateY(1px);
+    box-shadow: 0 2px 4px -1px rgba(52, 87, 178, 0.3);
+  }
 `;
 
 const OutlineButton = styled(Button)`
   background-color: transparent;
-  border: 2px solid white;
-  &:hover { background-color: rgba(255,255,255,0.1); }
+  border: 2px solid rgba(255,255,255, 0.7);
+  box-shadow: none;
+  width: auto;
+  max-width: none;
+  padding: 12px 30px;
+  margin-top: 20px;
+
+  &:hover { 
+    background-color: rgba(255,255,255,0.1); 
+    border-color: #fff;
+    box-shadow: none;
+    transform: translateY(-2px);
+  }
 `;
 
 
 const AuthPage = () => {
   const [isSignUp, setIsSignUp] = useState(false);
+  const navigate = useNavigate();
+
+  const handleLogin = (e) => {
+    e.preventDefault();
+    navigate("/dashboard");
+  };
 
   return (
     <PageContainer>
-      
+
       <FormsLayer>
-        <FormSide style={{ opacity: isSignUp ? 1 : 0, transition: 'opacity 0.4s' }}>
+        <FormSide style={{ opacity: isSignUp ? 1 : 0, transition: 'opacity 0.4s', pointerEvents: isSignUp ? 'auto' : 'none' }}>
           <Title dark>Create Account</Title>
           <Subtitle dark>Join us today and start your journey.</Subtitle>
-          <Input type="text" placeholder="Full Name" />
-          <Input type="email" placeholder="Email Address" />
-          <Input type="password" placeholder="Password" />
-          <Button style={{marginTop: '20px', width: '100%', maxWidth: '350px'}}>SIGN UP</Button>
+
+          <InputGroup>
+            <IconWrapper><PersonIcon fontSize="small" /></IconWrapper>
+            <Input type="text" placeholder="Full Name" />
+          </InputGroup>
+
+          <InputGroup>
+            <IconWrapper><EmailIcon fontSize="small" /></IconWrapper>
+            <Input type="email" placeholder="Email Address" />
+          </InputGroup>
+
+          <InputGroup>
+            <IconWrapper><LockIcon fontSize="small" /></IconWrapper>
+            <Input type="password" placeholder="Password" />
+          </InputGroup>
+
+          <Button>SIGN UP</Button>
         </FormSide>
-        <FormSide style={{ opacity: !isSignUp ? 1 : 0, transition: 'opacity 0.4s' }}>
+
+        <FormSide style={{ opacity: !isSignUp ? 1 : 0, transition: 'opacity 0.4s', pointerEvents: !isSignUp ? 'auto' : 'none' }}>
           <Title dark>Welcome Back</Title>
           <Subtitle dark>Login to access your dashboard.</Subtitle>
-          <Input type="email" placeholder="Email" />
-          <Input type="password" placeholder="Password" />
-          <Button style={{marginTop: '20px', width: '100%', maxWidth: '350px'}}>LOG IN</Button>
+
+          <InputGroup>
+            <IconWrapper><EmailIcon fontSize="small" /></IconWrapper>
+            <Input type="email" placeholder="Email" />
+          </InputGroup>
+
+          <InputGroup>
+            <IconWrapper><LockIcon fontSize="small" /></IconWrapper>
+            <Input type="password" placeholder="Password" />
+          </InputGroup>
+
+          <Button onClick={handleLogin}>LOG IN</Button>
         </FormSide>
       </FormsLayer>
 
@@ -179,7 +269,7 @@ const AuthPage = () => {
             ) : (
               <>
                 <Title>New Here?</Title>
-                <Subtitle>Sign up and discover a great amount of new opportunities!</Subtitle>
+                <Subtitle>Create an account and discover a great amount of new opportunities!</Subtitle>
                 <OutlineButton onClick={() => setIsSignUp(true)}>
                   GO TO SIGN UP
                 </OutlineButton>
