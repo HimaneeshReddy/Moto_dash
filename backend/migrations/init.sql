@@ -129,7 +129,7 @@ CREATE TABLE datasets (
     organization_id UUID NOT NULL
         REFERENCES organizations(id)
         ON DELETE CASCADE,
-    showroom_id UUID NOT NULL
+    showroom_id UUID
         REFERENCES showrooms(id)
         ON DELETE CASCADE,
     name TEXT NOT NULL,

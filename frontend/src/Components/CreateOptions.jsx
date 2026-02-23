@@ -7,6 +7,7 @@ import AnalyticsIcon from '@mui/icons-material/Analytics';
 import TableChartIcon from '@mui/icons-material/TableChart';
 import PieChartIcon from '@mui/icons-material/PieChart';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import { uploadCsv } from '../services/api.js';
 
 const Container = styled.div`
   display: flex;
@@ -236,12 +237,26 @@ const BackButton = styled.button`
   }
 `;
 
+const Msg = styled.p`
+  color: ${props => props.error ? '#ef4444' : '#10b981'};
+  font-size: 14px;
+  background: ${props => props.error ? '#fef2f2' : '#ecfdf5'};
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid ${props => props.error ? '#fecaca' : '#a7f3d0'};
+  margin: 0;
+  text-align: center;
+`;
+
 const CreateOptions = () => {
   // "selection" | "upload_csv" | "connect_db"
   const [view, setView] = useState("selection");
 
   // CSV Form State
   const [csvForm, setCsvForm] = useState({ datasetName: "", file: null });
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
 
   // DB Form State
   const [dbForm, setDbForm] = useState({
@@ -254,10 +269,24 @@ const CreateOptions = () => {
     databaseName: ""
   });
 
-  const handleCsvSubmit = (e) => {
+  const handleCsvSubmit = async (e) => {
     e.preventDefault();
-    console.log("Submitting CSV:", csvForm);
-    // TODO: Call API
+    setErrorMsg("");
+    setSuccessMsg("");
+    setLoading(true);
+
+    try {
+      const data = await uploadCsv(csvForm);
+      setSuccessMsg(data.message || "CSV Uploaded and parsed successfully!");
+      setCsvForm({ datasetName: "", file: null });
+
+      // Optionally, reset view back to selection after 2s:
+      // setTimeout(() => setView("selection"), 2000);
+    } catch (err) {
+      setErrorMsg(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleDbSubmit = (e) => {
@@ -324,6 +353,9 @@ const CreateOptions = () => {
               <Title style={{ fontSize: '24px' }}>Upload CSV Data</Title>
               <Subtitle>Import your spreadsheet to create a dataset</Subtitle>
             </Header>
+
+            {errorMsg && <Msg error>{errorMsg}</Msg>}
+            {successMsg && <Msg>{successMsg}</Msg>}
 
             <InputGroup>
               <label>Dataset Name</label>

@@ -9,10 +9,24 @@ const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
  * Internal helper — throws a readable error if the response is not OK.
  */
 const request = async (endpoint, options = {}) => {
+    const isFormData = options.body instanceof FormData;
+    const headers = { ...options.headers };
+
+    // Let the browser set the proper boundary header for multipart/form-data
+    if (!isFormData) {
+        headers["Content-Type"] = headers["Content-Type"] || "application/json";
+    }
+
+    // Attach JWT if available
+    const token = localStorage.getItem("authToken");
+    if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+    }
+
     const res = await fetch(`${BASE_URL}${endpoint}`, {
-        headers: { "Content-Type": "application/json", ...options.headers },
-        credentials: "include",
         ...options,
+        headers,
+        credentials: "include",
     });
 
     // Only parse as JSON if the server actually sent JSON.
@@ -82,4 +96,21 @@ export const getUser = () => {
 export const clearSession = () => {
     localStorage.removeItem("authToken");
     localStorage.removeItem("authUser");
+};
+
+// ── Data Inputs ───────────────────────────────────────────────
+
+/**
+ * Upload a CSV to be dynamically converted into a PostgreSQL table.
+ * POST /api/data/upload-csv
+ */
+export const uploadCsv = ({ datasetName, file }) => {
+    const formData = new FormData();
+    formData.append("datasetName", datasetName);
+    formData.append("file", file);
+
+    return request("/data/upload-csv", {
+        method: "POST",
+        body: formData,
+    });
 };
