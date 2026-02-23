@@ -123,9 +123,23 @@ const SaveButton = styled.button`
 `;
 
 const Profile = () => {
+  const [user, setUser] = React.useState(null);
+
+  React.useEffect(() => {
+    import('../services/api.js').then(({ getUser }) => {
+      const loggedInUser = getUser();
+      if (loggedInUser) {
+        setUser(loggedInUser);
+      }
+    });
+  }, []);
+
+  if (!user) {
+    return <Container_profile><h3 style={{ textAlign: "center" }}>Loading...</h3></Container_profile>;
+  }
+
   return (
     <Container_profile>
-
       <Content_profile>
         <Content_wrapper>
 
@@ -136,9 +150,9 @@ const Profile = () => {
               alt="Profile"
             />
             <ProfileInfo>
-              <h3>John Doe</h3>
-              <p>john.doe@dashflow.ai</p>
-              <p>Member since Jan 2025</p>
+              <h3>{user.firstName} {user.lastName}</h3>
+              <p>{user.email}</p>
+              <p style={{ textTransform: "capitalize" }}>Role: {user.role}</p>
             </ProfileInfo>
           </Content_profile_left>
 
@@ -150,47 +164,37 @@ const Profile = () => {
               <Row>
                 <Field>
                   <label>First Name</label>
-                  <input type="text" placeholder="John" />
+                  <input type="text" defaultValue={user.firstName} />
                 </Field>
                 <Field>
                   <label>Last Name</label>
-                  <input type="text" placeholder="Doe" />
+                  <input type="text" defaultValue={user.lastName} />
                 </Field>
               </Row>
 
               <Row>
                 <Field>
-                  <label>Middle Name (Optional)</label>
-                  <input type="text" placeholder="Michael" />
+                  <label>Role</label>
+                  <input type="text" defaultValue={user.role} readOnly style={{ backgroundColor: "#f3f4f6", cursor: "not-allowed" }} />
                 </Field>
                 <Field>
                   <label>Email Address</label>
-                  <input type="email" placeholder="john.doe@dashflow.ai" />
+                  <input type="email" defaultValue={user.email} readOnly style={{ backgroundColor: "#f3f4f6", cursor: "not-allowed" }} />
                 </Field>
               </Row>
 
               <Row>
                 <Field>
-                  <label>Phone Number</label>
-                  <input type="tel" placeholder="+1 9876543210" />
+                  <label>Organization ID</label>
+                  <input type="text" defaultValue={user.organizationId || "N/A"} readOnly style={{ backgroundColor: "#f3f4f6", cursor: "not-allowed" }} />
                 </Field>
                 <Field>
-                  <label>Organization</label>
-                  <input type="text" placeholder="DashFlow" />
+                  <label>Showroom ID</label>
+                  <input type="text" defaultValue={user.showroomId || "N/A"} readOnly style={{ backgroundColor: "#f3f4f6", cursor: "not-allowed" }} />
                 </Field>
               </Row>
 
-              <Field>
-                <label>Country</label>
-                <select>
-                  <option>Select country</option>
-                  <option>United States</option>
-                  <option>India</option>
-                  <option>United Kingdom</option>
-                </select>
-              </Field>
-
-              <SaveButton>Save Changes</SaveButton>
+              <SaveButton>Save Changes (Not Implemented)</SaveButton>
             </Form>
           </Content_profile_right>
 
