@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import styled from 'styled-components';
 import StorageRoundedIcon from '@mui/icons-material/StorageRounded';
 import DescriptionRoundedIcon from '@mui/icons-material/DescriptionRounded';
@@ -6,6 +6,7 @@ import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import AnalyticsIcon from '@mui/icons-material/Analytics';
 import TableChartIcon from '@mui/icons-material/TableChart';
 import PieChartIcon from '@mui/icons-material/PieChart';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 
 const Container = styled.div`
   display: flex;
@@ -16,7 +17,6 @@ const Container = styled.div`
   width: 100%;
   padding: 40px;
   box-sizing: border-box; 
-  gap: 40px;
   position: relative;
   overflow: hidden;
   background-color: #f4f6f8;
@@ -34,10 +34,19 @@ const BackgroundIcon = styled.div`
   }
 `;
 
+const ContentWrapper = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 40px;
+  width: 100%;
+  max-width: 900px;
+  z-index: 1;
+`;
+
 const Header = styled.div`
   text-align: center;
   position: relative;
-  z-index: 1;
 `;
 
 const Title = styled.h2`
@@ -60,9 +69,6 @@ const OptionsContainer = styled.div`
   justify-content: center;
   align-items: center;
   width: 100%;
-  max-width: 900px;
-  position: relative;
-  z-index: 1;
 `;
 
 const OptionCard = styled.div`
@@ -130,51 +136,319 @@ const CardDescription = styled.p`
   line-height: 1.6;
 `;
 
-const CreateOptions = () => {
-    return (
-        <Container>
-            {/* Background Icons */}
-            <BackgroundIcon style={{ top: '10%', left: '5%' }} size="120px" rotate="-15deg">
-                <CloudUploadIcon />
-            </BackgroundIcon>
-            <BackgroundIcon style={{ bottom: '15%', left: '10%' }} size="150px" rotate="20deg">
-                <AnalyticsIcon />
-            </BackgroundIcon>
-            <BackgroundIcon style={{ top: '15%', right: '10%' }} size="100px" rotate="10deg">
-                <TableChartIcon />
-            </BackgroundIcon>
-            <BackgroundIcon style={{ bottom: '10%', right: '5%' }} size="130px" rotate="-25deg">
-                <PieChartIcon />
-            </BackgroundIcon>
+const FormContainer = styled.form`
+  width: 100%;
+  max-width: 500px;
+  background: white;
+  padding: 40px;
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+`;
 
+const InputGroup = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  label {
+    font-size: 14px;
+    font-weight: 600;
+    color: #334155;
+  }
+
+  input, select {
+    padding: 12px 16px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 15px;
+    outline: none;
+    transition: all 0.2s;
+
+    &:focus {
+      border-color: #3457B2;
+      box-shadow: 0 0 0 3px rgba(52, 87, 178, 0.1);
+    }
+  }
+  
+  input[type="file"] {
+    padding: 10px;
+    background-color: #f8fafc;
+    cursor: pointer;
+  }
+`;
+
+const FormRow = styled.div`
+  display: flex;
+  gap: 16px;
+  > * {
+    flex: 1;
+  }
+`;
+
+const ButtonGroup = styled.div`
+  display: flex;
+  gap: 16px;
+  margin-top: 10px;
+`;
+
+const Button = styled.button`
+  flex: 1;
+  padding: 14px;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+
+  ${props => props.primary ? `
+    background-color: #3457B2;
+    color: white;
+    border: none;
+    &:hover { background-color: #2a458c; }
+  ` : `
+    background-color: white;
+    color: #64748B;
+    border: 1px solid #e2e8f0;
+    &:hover { background-color: #f1f5f9; }
+  `}
+`;
+
+const BackButton = styled.button`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: none;
+  border: none;
+  color: #64748B;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 0;
+  margin-bottom: 20px;
+  align-self: flex-start;
+  transition: color 0.2s;
+
+  &:hover {
+    color: #3457B2;
+  }
+`;
+
+const CreateOptions = () => {
+  // "selection" | "upload_csv" | "connect_db"
+  const [view, setView] = useState("selection");
+
+  // CSV Form State
+  const [csvForm, setCsvForm] = useState({ datasetName: "", file: null });
+
+  // DB Form State
+  const [dbForm, setDbForm] = useState({
+    datasetName: "",
+    dbType: "postgresql",
+    host: "",
+    port: "",
+    username: "",
+    password: "",
+    databaseName: ""
+  });
+
+  const handleCsvSubmit = (e) => {
+    e.preventDefault();
+    console.log("Submitting CSV:", csvForm);
+    // TODO: Call API
+  };
+
+  const handleDbSubmit = (e) => {
+    e.preventDefault();
+    console.log("Submitting DB Connection:", dbForm);
+    // TODO: Call API
+  };
+
+  return (
+    <Container>
+      {/* Background Icons */}
+      <BackgroundIcon style={{ top: '10%', left: '5%' }} size="120px" rotate="-15deg">
+        <CloudUploadIcon />
+      </BackgroundIcon>
+      <BackgroundIcon style={{ bottom: '15%', left: '10%' }} size="150px" rotate="20deg">
+        <AnalyticsIcon />
+      </BackgroundIcon>
+      <BackgroundIcon style={{ top: '15%', right: '10%' }} size="100px" rotate="10deg">
+        <TableChartIcon />
+      </BackgroundIcon>
+      <BackgroundIcon style={{ bottom: '10%', right: '5%' }} size="130px" rotate="-25deg">
+        <PieChartIcon />
+      </BackgroundIcon>
+
+      <ContentWrapper>
+        {view === "selection" && (
+          <>
             <Header>
-                <Title>Create New Project</Title>
-                <Subtitle>Select a data source to get started</Subtitle>
+              <Title>Create New Project</Title>
+              <Subtitle>Select a data source to get started</Subtitle>
             </Header>
 
             <OptionsContainer>
-                <OptionCard>
-                    <IconWrapper className="icon-wrapper">
-                        <DescriptionRoundedIcon />
-                    </IconWrapper>
-                    <CardTitle>Upload CSV</CardTitle>
-                    <CardDescription>
-                        Import data directly from a CSV file. Perfect for quick analysis and static datasets.
-                    </CardDescription>
-                </OptionCard>
+              <OptionCard onClick={() => setView("upload_csv")}>
+                <IconWrapper className="icon-wrapper">
+                  <DescriptionRoundedIcon />
+                </IconWrapper>
+                <CardTitle>Upload CSV</CardTitle>
+                <CardDescription>
+                  Import data directly from a CSV file. Perfect for quick analysis and static datasets.
+                </CardDescription>
+              </OptionCard>
 
-                <OptionCard>
-                    <IconWrapper className="icon-wrapper">
-                        <StorageRoundedIcon />
-                    </IconWrapper>
-                    <CardTitle>Connect Database</CardTitle>
-                    <CardDescription>
-                        Link your existing database securely. Supports MySQL, PostgreSQL, and more.
-                    </CardDescription>
-                </OptionCard>
+              <OptionCard onClick={() => setView("connect_db")}>
+                <IconWrapper className="icon-wrapper">
+                  <StorageRoundedIcon />
+                </IconWrapper>
+                <CardTitle>Connect Database</CardTitle>
+                <CardDescription>
+                  Link your existing database securely. Supports MySQL, PostgreSQL, and more.
+                </CardDescription>
+              </OptionCard>
             </OptionsContainer>
-        </Container>
-    );
+          </>
+        )}
+
+        {view === "upload_csv" && (
+          <FormContainer onSubmit={handleCsvSubmit}>
+            <BackButton type="button" onClick={() => setView("selection")}>
+              <ArrowBackIcon fontSize="small" /> Back to options
+            </BackButton>
+
+            <Header style={{ textAlign: 'left' }}>
+              <Title style={{ fontSize: '24px' }}>Upload CSV Data</Title>
+              <Subtitle>Import your spreadsheet to create a dataset</Subtitle>
+            </Header>
+
+            <InputGroup>
+              <label>Dataset Name</label>
+              <input
+                type="text"
+                placeholder="e.g. Q4 Sales Data"
+                required
+                value={csvForm.datasetName}
+                onChange={e => setCsvForm({ ...csvForm, datasetName: e.target.value })}
+              />
+            </InputGroup>
+
+            <InputGroup>
+              <label>CSV File</label>
+              <input
+                type="file"
+                accept=".csv"
+                required
+                onChange={e => setCsvForm({ ...csvForm, file: e.target.files[0] })}
+              />
+            </InputGroup>
+
+            <Button primary type="submit">Upload and Create</Button>
+          </FormContainer>
+        )}
+
+        {view === "connect_db" && (
+          <FormContainer onSubmit={handleDbSubmit}>
+            <BackButton type="button" onClick={() => setView("selection")}>
+              <ArrowBackIcon fontSize="small" /> Back to options
+            </BackButton>
+
+            <Header style={{ textAlign: 'left' }}>
+              <Title style={{ fontSize: '24px' }}>Connect Database</Title>
+              <Subtitle>Link an external database to query directly</Subtitle>
+            </Header>
+
+            <InputGroup>
+              <label>Dataset Name (Label)</label>
+              <input
+                type="text"
+                placeholder="e.g. Production Database DB"
+                required
+                value={dbForm.datasetName}
+                onChange={e => setDbForm({ ...dbForm, datasetName: e.target.value })}
+              />
+            </InputGroup>
+
+            <InputGroup>
+              <label>Database Type</label>
+              <select
+                value={dbForm.dbType}
+                onChange={e => setDbForm({ ...dbForm, dbType: e.target.value })}
+              >
+                <option value="postgresql">PostgreSQL</option>
+                <option value="mysql">MySQL</option>
+              </select>
+            </InputGroup>
+
+            <FormRow>
+              <InputGroup>
+                <label>Host</label>
+                <input
+                  type="text"
+                  placeholder="localhost"
+                  required
+                  value={dbForm.host}
+                  onChange={e => setDbForm({ ...dbForm, host: e.target.value })}
+                />
+              </InputGroup>
+              <InputGroup>
+                <label>Port</label>
+                <input
+                  type="text"
+                  placeholder="5432"
+                  required
+                  value={dbForm.port}
+                  onChange={e => setDbForm({ ...dbForm, port: e.target.value })}
+                />
+              </InputGroup>
+            </FormRow>
+
+            <InputGroup>
+              <label>Database Name</label>
+              <input
+                type="text"
+                placeholder="e.g. dashflow_db"
+                required
+                value={dbForm.databaseName}
+                onChange={e => setDbForm({ ...dbForm, databaseName: e.target.value })}
+              />
+            </InputGroup>
+
+            <FormRow>
+              <InputGroup>
+                <label>Username</label>
+                <input
+                  type="text"
+                  placeholder="db_user"
+                  required
+                  value={dbForm.username}
+                  onChange={e => setDbForm({ ...dbForm, username: e.target.value })}
+                />
+              </InputGroup>
+              <InputGroup>
+                <label>Password</label>
+                <input
+                  type="password"
+                  placeholder="••••••••"
+                  required
+                  value={dbForm.password}
+                  onChange={e => setDbForm({ ...dbForm, password: e.target.value })}
+                />
+              </InputGroup>
+            </FormRow>
+
+            <ButtonGroup>
+              <Button type="button" onClick={() => console.log("Test Connection")}>Test Connection</Button>
+              <Button primary type="submit">Connect Data</Button>
+            </ButtonGroup>
+          </FormContainer>
+        )}
+      </ContentWrapper>
+    </Container>
+  );
 };
 
 export default CreateOptions;
