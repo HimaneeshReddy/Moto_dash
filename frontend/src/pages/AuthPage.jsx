@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import styled from "styled-components";
 import bg from '../Images/background.png';
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import EmailIcon from '@mui/icons-material/Email';
 import LockIcon from '@mui/icons-material/Lock';
 import PersonIcon from '@mui/icons-material/Person';
@@ -232,11 +232,28 @@ const AuthPage = () => {
   const [isSignUpSide, setIsSignUpSide] = useState(false);
   const [signUpMode, setSignUpMode] = useState("create-org"); // "create-org" | "register"
   const navigate = useNavigate();
+  const location = useLocation();
 
   // ── Form state ──
   const [loginForm, setLoginForm] = useState({ email: "", password: "" });
   const [orgForm, setOrgForm] = useState({ organizationName: "", firstName: "", lastName: "", email: "", password: "" });
   const [registerForm, setRegisterForm] = useState({ token: "", email: "", firstName: "", lastName: "", password: "" });
+
+  // On mount, check if there's an invite token in the URL
+  React.useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const token = params.get('token');
+    const email = params.get('email');
+    const mode = params.get('mode');
+
+    if (token || mode === 'register') {
+      setIsSignUpSide(true);
+      setSignUpMode("register");
+      if (token) {
+        setRegisterForm(prev => ({ ...prev, token, email: email || prev.email }));
+      }
+    }
+  }, [location]);
 
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -391,12 +408,19 @@ const AuthPage = () => {
                 <IconWrapper><EmailIcon fontSize="small" /></IconWrapper>
                 <Input
                   type="email"
-                  placeholder="Your Email (must match invite)"
+                  placeholder="Your Company Email"
                   value={registerForm.email}
                   onChange={e => setRegisterForm({ ...registerForm, email: e.target.value })}
                   required
+                  disabled={!!registerForm.token} // Lock the email if they're using an invite link
+                  title={registerForm.token ? "Your company email is pre-assigned by your organization" : ""}
                 />
               </InputGroup>
+              {registerForm.token && (
+                <p style={{ fontSize: 12, color: "#64748b", margin: "-12px 0 16px 0", textAlign: "left", width: "100%", maxWidth: 380 }}>
+                  * Your company email is locked to this invitation.
+                </p>
+              )}
               <InputGroup>
                 <IconWrapper><PersonIcon fontSize="small" /></IconWrapper>
                 <Input

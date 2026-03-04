@@ -19,6 +19,7 @@ import ViewQuiltIcon from '@mui/icons-material/ViewQuilt';
 import EditIcon from '@mui/icons-material/Edit';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import ContactSupportIcon from '@mui/icons-material/ContactSupport';
+import { submitSupportTicket } from '../services/api';
 
 // --- Styled Components ---
 
@@ -387,6 +388,11 @@ const HelpCenter = () => {
   const [selectedCategory, setSelectedCategory] = useState(0);
   const [isContactForm, setIsContactForm] = useState(false);
 
+  // Form State
+  const [formData, setFormData] = useState({ name: '', email: '', type: '', subject: '', message: '' });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitStatus, setSubmitStatus] = useState(null);
+
   const handleCategoryClick = (index) => {
     setSelectedCategory(index);
     setIsContactForm(false);
@@ -409,6 +415,27 @@ const HelpCenter = () => {
 
   const handleNavContactClick = () => {
     setIsContactForm(true);
+  };
+
+  const handleSupportSubmit = async (e) => {
+    e.preventDefault();
+    if (!formData.name || !formData.email || !formData.type || !formData.subject || !formData.message) {
+      setSubmitStatus({ type: 'error', text: 'Please fill in all fields.' });
+      return;
+    }
+    setIsSubmitting(true);
+    setSubmitStatus(null);
+    try {
+      const res = await submitSupportTicket(formData);
+      if (res.success) {
+        setSubmitStatus({ type: 'success', text: res.message });
+        setFormData({ name: '', email: '', type: '', subject: '', message: '' });
+      }
+    } catch (err) {
+      setSubmitStatus({ type: 'error', text: err.message || 'Failed to submit ticket.' });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -483,22 +510,37 @@ const HelpCenter = () => {
             {isContactForm ? (
               <>
                 <DetailTitle>Contact Support</DetailTitle>
-                <Form onSubmit={(e) => e.preventDefault()}>
+
+                {submitStatus && (
+                  <div style={{
+                    padding: '12px 16px',
+                    borderRadius: '6px',
+                    marginBottom: '20px',
+                    backgroundColor: submitStatus.type === 'success' ? '#f0fdf4' : '#fef2f2',
+                    color: submitStatus.type === 'success' ? '#16a34a' : '#ef4444',
+                    border: `1px solid ${submitStatus.type === 'success' ? '#bbf7d0' : '#fecaca'}`,
+                    fontWeight: 500
+                  }}>
+                    {submitStatus.text}
+                  </div>
+                )}
+
+                <Form onSubmit={handleSupportSubmit}>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
                     <InputGroup>
                       <Label>Name</Label>
-                      <Input type="text" placeholder="Your name" />
+                      <Input type="text" placeholder="Your name" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} disabled={isSubmitting} />
                     </InputGroup>
                     <InputGroup>
                       <Label>Email</Label>
-                      <Input type="email" placeholder="your@email.com" />
+                      <Input type="email" placeholder="your@email.com" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} disabled={isSubmitting} />
                     </InputGroup>
                   </div>
 
                   <InputGroup>
                     <Label>Type of Mail</Label>
-                    <Select>
-                      <option value="" disabled selected>Select an option</option>
+                    <Select value={formData.type} onChange={e => setFormData({ ...formData, type: e.target.value })} disabled={isSubmitting}>
+                      <option value="" disabled>Select an option</option>
                       <option value="bug">Bug Report</option>
                       <option value="feature">Feature Request</option>
                       <option value="billing">Billing Inquiry</option>
@@ -508,16 +550,16 @@ const HelpCenter = () => {
 
                   <InputGroup>
                     <Label>Subject</Label>
-                    <Input type="text" placeholder="What can we help you with?" />
+                    <Input type="text" placeholder="What can we help you with?" value={formData.subject} onChange={e => setFormData({ ...formData, subject: e.target.value })} disabled={isSubmitting} />
                   </InputGroup>
 
                   <InputGroup>
                     <Label>Message</Label>
-                    <TextArea placeholder="Describe your issue or question in detail..." />
+                    <TextArea placeholder="Describe your issue or question in detail..." value={formData.message} onChange={e => setFormData({ ...formData, message: e.target.value })} disabled={isSubmitting} />
                   </InputGroup>
 
-                  <SubmitButton type="submit">
-                    Send Message <SendIcon sx={{ fontSize: 16 }} />
+                  <SubmitButton type="submit" disabled={isSubmitting}>
+                    {isSubmitting ? 'Sending...' : 'Send Message'} <SendIcon sx={{ fontSize: 16 }} />
                   </SubmitButton>
                 </Form>
               </>

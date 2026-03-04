@@ -8,6 +8,7 @@ import TableChartIcon from '@mui/icons-material/TableChart';
 import PieChartIcon from '@mui/icons-material/PieChart';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { uploadCsv } from '../services/api.js';
+import AnalyzingLoader from './AnalyzingLoader.jsx';
 
 const Container = styled.div`
   display: flex;
@@ -248,13 +249,14 @@ const Msg = styled.p`
   text-align: center;
 `;
 
-const CreateOptions = () => {
+const CreateOptions = ({ onAnalysisSuccess }) => {
   // "selection" | "upload_csv" | "connect_db"
   const [view, setView] = useState("selection");
 
   // CSV Form State
   const [csvForm, setCsvForm] = useState({ datasetName: "", file: null });
   const [loading, setLoading] = useState(false);
+  const [analyzingDatasetId, setAnalyzingDatasetId] = useState(null);
   const [errorMsg, setErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
 
@@ -276,17 +278,28 @@ const CreateOptions = () => {
     setLoading(true);
 
     try {
-      const data = await uploadCsv(csvForm);
-      setSuccessMsg(data.message || "CSV Uploaded and parsed successfully!");
-      setCsvForm({ datasetName: "", file: null });
+      const uploadRes = await uploadCsv(csvForm);
 
-      // Optionally, reset view back to selection after 2s:
-      // setTimeout(() => setView("selection"), 2000);
+      // Swap to the AnalyzingLoader screen and give it the ID to trigger Ollama
+      setAnalyzingDatasetId(uploadRes.dataset.id);
+
     } catch (err) {
       setErrorMsg(err.message);
-    } finally {
       setLoading(false);
     }
+  };
+
+  const handleAnalysisComplete = (analysisData) => {
+    setLoading(false);
+    setAnalyzingDatasetId(null);
+    // Let the parent DashboardPage handle routing to the DashboardView
+    onAnalysisSuccess(analysisData, csvForm.datasetName);
+  };
+
+  const handleAnalysisError = (errMsg) => {
+    setErrorMsg(errMsg);
+    setLoading(false);
+    setAnalyzingDatasetId(null);
   };
 
   const handleDbSubmit = (e) => {
@@ -294,6 +307,16 @@ const CreateOptions = () => {
     console.log("Submitting DB Connection:", dbForm);
     // TODO: Call API
   };
+
+  if (analyzingDatasetId) {
+    return (
+      <AnalyzingLoader
+        datasetId={analyzingDatasetId}
+        onAnalysisComplete={handleAnalysisComplete}
+        onError={handleAnalysisError}
+      />
+    );
+  }
 
   return (
     <Container>
@@ -375,10 +398,13 @@ const CreateOptions = () => {
                 accept=".csv"
                 required
                 onChange={e => setCsvForm({ ...csvForm, file: e.target.files[0] })}
+                disabled={loading}
               />
             </InputGroup>
 
-            <Button primary type="submit">Upload and Create</Button>
+            <Button primary type="submit" disabled={loading}>
+              {loading ? "Processing..." : "Upload and Analyze"}
+            </Button>
           </FormContainer>
         )}
 

@@ -3,6 +3,7 @@ import jwt from "jsonwebtoken";
 import pool from "../config/db.js";
 import { findUserByEmail, createUser } from "../Models/userModel.js";
 import { hashToken, findInviteByToken, markInviteAccepted } from "../Models/inviteModel.js";
+import { sendSupportEmail } from "../Utils/email.js";
 
 // ─────────────────────────────────────────────
 // CREATE ORGANISATION  (owner registration)
@@ -25,10 +26,11 @@ export const createOrganization = async (req, res, next) => {
 
         await client.query("BEGIN");
 
-        // 1. Create the organisation
+        // 1. Create the organisation with an auto-generated domain (e.g. "Bike Motors" -> "bikemotors.app")
+        const domain = organizationName.toLowerCase().replace(/\s+/g, "") + ".app";
         const orgResult = await client.query(
-            "INSERT INTO organizations (name) VALUES ($1) RETURNING *",
-            [organizationName]
+            "INSERT INTO organizations (name, domain) VALUES ($1, $2) RETURNING *",
+            [organizationName, domain]
         );
         const organization = orgResult.rows[0];
 
@@ -48,7 +50,7 @@ export const createOrganization = async (req, res, next) => {
         res.status(201).json({
             success: true,
             organization,
-            user  
+            user
         });
 
     } catch (err) {
@@ -80,7 +82,7 @@ export const registerUser = async (req, res, next) => {
 
         // Invite must exist, be pending, and not expired (all checked by model query)
         if (!invite) {
-            return res.status(400).json({ message: "Invalid or expired invite" });
+            return res.status(400).json({ message: "Invite is invalid" });
         }
 
         // The submitted email must exactly match the invited email
@@ -105,12 +107,12 @@ export const registerUser = async (req, res, next) => {
        RETURNING id, organization_id, showroom_id, first_name, last_name, email, role, status, created_at`,
             [
                 invite.organization_id,
-                invite.showroom_id,   
+                invite.showroom_id,
                 firstName,
                 lastName,
                 email,
                 passwordHash,
-                invite.role           
+                invite.role
             ]
         );
         const newUser = user.rows[0];
@@ -202,6 +204,30 @@ export const loginUser = async (req, res, next) => {
             }
         });
 
+    } catch (err) {
+        next(err);
+    }
+};
+
+// ─────────────────────────────────────────────
+// SUBMIT SUPPORT TICKET 
+// POST /api/auth/support
+// ─────────────────────────────────────────────
+export const submitSupportTicket = async (req, res, next) => {
+    try {
+        const { name, email, type, subject, message } = req.body;
+
+        if (!name || !email || !type || !subject || !message) {
+            return res.status(400).json({ message: "All fields are required." });
+        }
+
+        // Dispatch the email wrapper
+        await sendSupportEmail(name, email, type, subject, message);
+
+        return res.status(200).json({
+            success: true,
+            message: "Support ticket submitted successfully. Our team will contact you shortly."
+        });
     } catch (err) {
         next(err);
     }

@@ -99,7 +99,7 @@ export const uploadCsv = async (req, res, next) => {
                     await client.query(insertQuery);
                 }
 
-                // 3. Register dataset metadata
+                // 3. Register dataset record
                 const insertMetadata = `
                     INSERT INTO datasets 
                     (organization_id, showroom_id, name, storage_table_name, uploaded_by, row_count, column_count)
@@ -109,7 +109,7 @@ export const uploadCsv = async (req, res, next) => {
 
                 const dbRes = await client.query(insertMetadata, [
                     organizationId,
-                    showroomId || null, // Allow null since Owner might not have showroom
+                    showroomId || null,
                     datasetName,
                     tableName,
                     userId,
@@ -117,12 +117,75 @@ export const uploadCsv = async (req, res, next) => {
                     uniqueHeaders.length
                 ]);
 
+                const datasetId = dbRes.rows[0].id;
+
+                // 4. Build column-level metadata from the in-memory rows (no extra DB query needed)
+                const columnStats = uniqueHeaders.map(col => {
+                    const values = results.map(row => row[col]).filter(v => v !== null && v !== undefined && v !== "");
+                    const sample = values.slice(0, 5);
+
+                    // Try to detect if column is numeric
+                    const numericValues = values.map(v => Number(v)).filter(v => !isNaN(v));
+                    const isNumeric = numericValues.length > 0 && numericValues.length === values.length;
+
+                    // Try to detect if column looks like a date
+                    const dateTest = values.slice(0, 10).every(v => !isNaN(Date.parse(v)));
+                    const isDate = !isNumeric && dateTest && values.length > 0;
+
+                    if (isNumeric) {
+                        const min = Math.min(...numericValues);
+                        const max = Math.max(...numericValues);
+                        const avg = numericValues.reduce((a, b) => a + b, 0) / numericValues.length;
+                        return {
+                            name: col,
+                            type: "numeric",
+                            min: parseFloat(min.toFixed(4)),
+                            max: parseFloat(max.toFixed(4)),
+                            avg: parseFloat(avg.toFixed(4)),
+                            null_count: results.length - values.length,
+                            sample
+                        };
+                    } else if (isDate) {
+                        return {
+                            name: col,
+                            type: "date",
+                            null_count: results.length - values.length,
+                            sample
+                        };
+                    } else {
+                        // Categorical / text
+                        const uniqueVals = [...new Set(values)];
+                        return {
+                            name: col,
+                            type: "text",
+                            unique_count: uniqueVals.length,
+                            // Only pass up to 20 unique values to avoid bloating the metadata
+                            unique_values: uniqueVals.slice(0, 20),
+                            null_count: results.length - values.length,
+                            sample
+                        };
+                    }
+                });
+
+                const metadataBlob = {
+                    schema_version: 1,
+                    row_count: results.length,
+                    column_count: uniqueHeaders.length,
+                    columns: columnStats
+                };
+
+                await client.query(
+                    `INSERT INTO dataset_metadata (dataset_id, metadata) VALUES ($1, $2)`,
+                    [datasetId, JSON.stringify(metadataBlob)]
+                );
+
                 await client.query("COMMIT");
 
                 return res.status(201).json({
                     success: true,
                     dataset: dbRes.rows[0],
-                    message: `Successfully processed ${results.length} rows.`
+                    metadata: metadataBlob,
+                    message: `Successfully processed ${results.length} rows across ${uniqueHeaders.length} columns.`
                 });
 
             } catch (err) {

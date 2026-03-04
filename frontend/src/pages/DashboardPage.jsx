@@ -1,6 +1,9 @@
 import styled from "styled-components";
 import logo from '../Images/logo.png';
 import HomeOutlinedIcon from '@mui/icons-material/HomeOutlined';
+import DashboardIcon from '@mui/icons-material/Dashboard';
+import TableRowsIcon from '@mui/icons-material/TableRows';
+import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import PowerSettingsNewIcon from '@mui/icons-material/PowerSettingsNew';
 import FolderOpenOutlinedIcon from '@mui/icons-material/FolderOpenOutlined';
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
@@ -11,6 +14,10 @@ import Home from '../Components/Home.jsx';
 import Profile from "../Components/Profile.jsx";
 import CreateOptions from "../Components/CreateOptions.jsx";
 import HelpCenter from "../Components/HelpCenter.jsx";
+import DashboardView from "../Components/DashboardView.jsx";
+import DatasetManager from "../Components/DatasetManager.jsx";
+import OrgConsole from "../Components/OrgConsole.jsx";
+import { getUser } from "../services/api.js";
 
 /* ---------------- STYLES ---------------- */
 
@@ -95,12 +102,21 @@ const Contents = styled.div`
 import { useNavigate } from "react-router-dom";
 
 const DashboardPage = () => {
+  const user = getUser();
   const [activePage, setActivePage] = useState("home");
+  const [activeAnalysis, setActiveAnalysis] = useState(null);
+  const [activeDatasetName, setActiveDatasetName] = useState("");
   const navigate = useNavigate();
 
   const handleLogout = () => {
     // Here you would typically clear auth tokens
     navigate("/");
+  };
+
+  const handleAnalysisSuccess = (analysisData, datasetName) => {
+    setActiveAnalysis(analysisData);
+    setActiveDatasetName(datasetName);
+    setActivePage("dashboard");
   };
 
   return (
@@ -119,6 +135,32 @@ const DashboardPage = () => {
               <IconCard><HomeOutlinedIcon /></IconCard>
               Home
             </OptionCard>
+
+            <OptionCard
+              active={activePage === "dashboard"}
+              onClick={() => setActivePage("dashboard")}
+            >
+              <IconCard><DashboardIcon /></IconCard>
+              Dashboard
+            </OptionCard>
+
+            <OptionCard
+              active={activePage === "datasets"}
+              onClick={() => setActivePage("datasets")}
+            >
+              <IconCard><TableRowsIcon /></IconCard>
+              Datasets
+            </OptionCard>
+
+            {user?.role !== "analyst" && (
+              <OptionCard
+                active={activePage === "orgconsole"}
+                onClick={() => setActivePage("orgconsole")}
+              >
+                <IconCard><AdminPanelSettingsIcon /></IconCard>
+                Org Console
+              </OptionCard>
+            )}
 
             <OptionCard>
               <IconCard><FolderOpenOutlinedIcon /></IconCard>
@@ -162,8 +204,18 @@ const DashboardPage = () => {
       <Contents>
         {activePage === "home" && <Home setActivePage={setActivePage} />}
         {activePage === "profile" && <Profile />}
-        {activePage === "create" && <CreateOptions />}
+        {activePage === "create" && <CreateOptions onAnalysisSuccess={handleAnalysisSuccess} />}
         {activePage === "help" && <HelpCenter />}
+        {activePage === "datasets" && <DatasetManager />}
+        {activePage === "orgconsole" && <OrgConsole />}
+
+        {/* Dynamic AI Dashboard View */}
+        {activePage === "dashboard" && (
+          <DashboardView
+            analysisData={activeAnalysis}
+            datasetName={activeDatasetName}
+          />
+        )}
       </Contents>
     </Container>
   );

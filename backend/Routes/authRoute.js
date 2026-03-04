@@ -2,7 +2,8 @@ import express from "express";
 import {
     createOrganization,
     registerUser,
-    loginUser
+    loginUser,
+    submitSupportTicket
 } from "../Controllers/authController.js";
 
 const router = express.Router();
@@ -15,5 +16,8 @@ router.post("/register", registerUser);
 
 // Login
 router.post("/login", loginUser);
+
+// Submit Support Ticket (Public/Protected depending on use-case, kept public here for edge cases where login fails)
+router.post("/support", submitSupportTicket);
 
 export default router;

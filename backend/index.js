@@ -4,6 +4,7 @@ import cors from "cors"
 import pool from "./config/db.js"
 import authRoute from "./Routes/authRoute.js"
 import dataRoute from "./Routes/dataRoute.js"
+import adminRoute from "./Routes/adminRoute.js"
 
 dotenv.config()
 
@@ -22,6 +23,7 @@ app.use(express.json())
 
 app.use("/api/auth", authRoute)
 app.use("/api/data", dataRoute)
+app.use("/api/admin", adminRoute)
 
 
 const PORT = process.env.PORT || 5000
