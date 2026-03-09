@@ -140,6 +140,20 @@ export const analyzeDataset = (datasetId) => {
 /** List all datasets for the org. GET /api/data/datasets */
 export const listDatasets = () => request("/data/datasets");
 
+/** List all datasets that have been analyzed by the LLM (i.e. have a saved dashboard). */
+export const listAnalyzedDatasets = (search = "") =>
+    request(`/data/analyzed${search ? `?search=${encodeURIComponent(search)}` : ""}`);
+
+/** Fetch the stored LLM analysis for a specific dataset. GET /api/data/:id/analysis */
+export const getDatasetAnalysis = (datasetId) => request(`/data/${datasetId}/analysis`);
+
+/** Save an auto-captured dashboard thumbnail (base64 PNG). PATCH /api/data/:id/thumbnail */
+export const saveDatasetThumbnail = (datasetId, thumbnail) =>
+    request(`/data/${datasetId}/thumbnail`, {
+        method: 'PATCH',
+        body: JSON.stringify({ thumbnail }),
+    });
+
 /** Get paginated (+ searchable) rows from a dataset. GET /api/data/:id/rows */
 export const getDatasetRows = (datasetId, { page = 1, limit = 50, search = "" } = {}) => {
     const params = new URLSearchParams({ page, limit, ...(search && { search }) });
@@ -189,3 +203,22 @@ export const approveRequest = (id) =>
     request(`/admin/requests/${id}/approve`, { method: "POST" });
 export const rejectRequest = (id) =>
     request(`/admin/requests/${id}/reject`, { method: "POST" });
+
+// ── Insight SQL Execution ─────────────────────────────────────
+/** Run a read-only AI-generated SQL query against a specific dataset. */
+export const runInsightQuery = (datasetId, sql_query) =>
+    request(`/data/${datasetId}/insight-query`, {
+        method: "POST",
+        body: JSON.stringify({ sql_query }),
+    });
+
+/** Permanently delete a dataset (rows, metadata, storage table). */
+export const deleteDataset = (datasetId) =>
+    request(`/data/${datasetId}`, { method: "DELETE" });
+
+/** Send a natural-language question to the chatbot for a dataset. */
+export const chatWithDataset = (datasetId, question) =>
+    request(`/data/${datasetId}/chat`, {
+        method: "POST",
+        body: JSON.stringify({ question }),
+    });

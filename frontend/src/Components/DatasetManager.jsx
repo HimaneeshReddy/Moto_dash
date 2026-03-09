@@ -112,10 +112,10 @@ const Msg = styled.div`
 
 const LIMIT = 50;
 
-export default function DatasetManager() {
-    const [view, setView] = useState("list"); // "list" | "table"
+export default function DatasetManager({ fixedDatasetId, hideHeader }) {
+    const [view, setView] = useState(fixedDatasetId ? "table" : "list"); // "list" | "table"
     const [datasets, setDatasets] = useState([]);
-    const [activeDataset, setActiveDataset] = useState(null);
+    const [activeDataset, setActiveDataset] = useState(fixedDatasetId ? { id: fixedDatasetId, name: 'Dashboard Dataset' } : null);
 
     const [rows, setRows] = useState([]);
     const [columns, setColumns] = useState([]);
@@ -133,10 +133,12 @@ export default function DatasetManager() {
     const [toast, setToast] = useState(null);
     const [loading, setLoading] = useState(false);
 
-    // Fetch datasets on mount
+    // Fetch datasets on mount if no fixed ID
     useEffect(() => {
-        listDatasets().then(res => setDatasets(res.datasets || [])).catch(console.error);
-    }, []);
+        if (!fixedDatasetId) {
+            listDatasets().then(res => setDatasets(res.datasets || [])).catch(console.error);
+        }
+    }, [fixedDatasetId]);
 
     const openDataset = async (dataset) => {
         setActiveDataset(dataset);
@@ -238,14 +240,16 @@ export default function DatasetManager() {
     }
 
     return (
-        <Wrapper>
+        <Wrapper style={hideHeader ? { padding: 0 } : {}}>
             {toast && <Msg error={toast.error} style={{ position: 'fixed', top: 20, right: 20, zIndex: 300, minWidth: 260 }}>{toast.msg}</Msg>}
 
-            <PageHeader>
-                <Btn onClick={() => setView("list")}><ArrowBackIcon fontSize="small" /> Back</Btn>
-                <PageTitle>{activeDataset?.name}</PageTitle>
-                <CardMeta>{totalCount.toLocaleString()} total rows</CardMeta>
-            </PageHeader>
+            {!hideHeader && (
+                <PageHeader>
+                    {!fixedDatasetId && <Btn onClick={() => setView("list")}><ArrowBackIcon fontSize="small" /> Back</Btn>}
+                    <PageTitle>{activeDataset?.name}</PageTitle>
+                    <CardMeta>{totalCount.toLocaleString()} total rows</CardMeta>
+                </PageHeader>
+            )}
 
             <Toolbar>
                 <SearchBox>

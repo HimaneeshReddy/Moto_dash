@@ -290,10 +290,12 @@ const CreateOptions = ({ onAnalysisSuccess }) => {
   };
 
   const handleAnalysisComplete = (analysisData) => {
+    const savedDatasetId = analyzingDatasetId; // capture before clearing
     setLoading(false);
     setAnalyzingDatasetId(null);
     // Let the parent DashboardPage handle routing to the DashboardView
-    onAnalysisSuccess(analysisData, csvForm.datasetName);
+    // Pass datasetId as the 3rd arg so DashboardView can fetch chart rows
+    onAnalysisSuccess(analysisData, csvForm.datasetName, savedDatasetId);
   };
 
   const handleAnalysisError = (errMsg) => {

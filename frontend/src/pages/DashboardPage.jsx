@@ -15,6 +15,7 @@ import Profile from "../Components/Profile.jsx";
 import CreateOptions from "../Components/CreateOptions.jsx";
 import HelpCenter from "../Components/HelpCenter.jsx";
 import DashboardView from "../Components/DashboardView.jsx";
+import DashboardList from "../Components/DashboardList.jsx";
 import DatasetManager from "../Components/DatasetManager.jsx";
 import OrgConsole from "../Components/OrgConsole.jsx";
 import { getUser } from "../services/api.js";
@@ -106,6 +107,7 @@ const DashboardPage = () => {
   const [activePage, setActivePage] = useState("home");
   const [activeAnalysis, setActiveAnalysis] = useState(null);
   const [activeDatasetName, setActiveDatasetName] = useState("");
+  const [activeDatasetId, setActiveDatasetId] = useState(null);
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -113,9 +115,19 @@ const DashboardPage = () => {
     navigate("/");
   };
 
-  const handleAnalysisSuccess = (analysisData, datasetName) => {
+  // Called after upload + analysis completes (new dataset flow)
+  const handleAnalysisSuccess = (analysisData, datasetName, datasetId) => {
     setActiveAnalysis(analysisData);
     setActiveDatasetName(datasetName);
+    setActiveDatasetId(datasetId || null);
+    setActivePage("dashboard");
+  };
+
+  // Called when opening a saved dashboard from the DashboardList
+  const handleOpenSavedDashboard = (analysisData, datasetName, datasetId) => {
+    setActiveAnalysis(analysisData);
+    setActiveDatasetName(datasetName);
+    setActiveDatasetId(datasetId);
     setActivePage("dashboard");
   };
 
@@ -137,19 +149,11 @@ const DashboardPage = () => {
             </OptionCard>
 
             <OptionCard
-              active={activePage === "dashboard"}
-              onClick={() => setActivePage("dashboard")}
+              active={activePage === "dashboards" || activePage === "dashboard"}
+              onClick={() => setActivePage("dashboards")}
             >
               <IconCard><DashboardIcon /></IconCard>
-              Dashboard
-            </OptionCard>
-
-            <OptionCard
-              active={activePage === "datasets"}
-              onClick={() => setActivePage("datasets")}
-            >
-              <IconCard><TableRowsIcon /></IconCard>
-              Datasets
+              Dashboards
             </OptionCard>
 
             {user?.role !== "analyst" && (
@@ -202,22 +206,29 @@ const DashboardPage = () => {
       </LeftSideBar>
 
       <Contents>
-        {activePage === "home" && <Home setActivePage={setActivePage} />}
+        {activePage === "home" && <Home setActivePage={setActivePage} onOpenDashboard={handleOpenSavedDashboard} />}
         {activePage === "profile" && <Profile />}
         {activePage === "create" && <CreateOptions onAnalysisSuccess={handleAnalysisSuccess} />}
         {activePage === "help" && <HelpCenter />}
         {activePage === "datasets" && <DatasetManager />}
         {activePage === "orgconsole" && <OrgConsole />}
+        {activePage === "dashboards" && (
+          <DashboardList
+            onOpenDashboard={handleOpenSavedDashboard}
+            setActivePage={setActivePage}
+          />
+        )}
 
         {/* Dynamic AI Dashboard View */}
         {activePage === "dashboard" && (
           <DashboardView
             analysisData={activeAnalysis}
             datasetName={activeDatasetName}
+            datasetId={activeDatasetId}
           />
         )}
       </Contents>
-    </Container>
+    </Container >
   );
 };
 

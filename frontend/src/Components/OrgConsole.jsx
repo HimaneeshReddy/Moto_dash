@@ -21,7 +21,14 @@ import {
 
 const fadeIn = keyframes`from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); }`;
 
-const Wrapper = styled.div`padding: 32px 40px; animation: ${fadeIn} 0.3s ease; max-width: 1200px; margin: 0 auto;`;
+const Wrapper = styled.div`
+  padding: 32px 40px; 
+  animation: ${fadeIn} 0.3s ease; 
+  max-width: 1200px; 
+  margin: 0 auto;
+  background-color: #f4f6f8;
+  min-height: 100vh;
+`;
 const PageHeader = styled.div`display: flex; align-items: center; gap: 14px; margin-bottom: 24px;`;
 const PageTitle = styled.h1`font-size: 26px; color: #1e293b; margin: 0;`;
 

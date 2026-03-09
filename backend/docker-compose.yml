@@ -12,5 +12,17 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
 
+  ollama:
+    image: ollama/ollama:latest
+    container_name: dashflow-ollama
+    restart: always
+    ports:
+      - "11434:11434"
+    extra_hosts:
+      - "registry.ollama.ai:104.21.75.227"
+    volumes:
+      - C:/Users/sreep/.ollama:/root/.ollama
+
 volumes:
   pgdata:
+  ollama_data:
