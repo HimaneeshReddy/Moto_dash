@@ -203,7 +203,7 @@ export const getDatasetAnalysis = async (req, res, next) => {
 // ─────────────────────────────────────────────────────────────────
 export const listAnalyzedDatasets = async (req, res, next) => {
     const { organizationId } = req.user;
-    const { search } = req.query;
+    const { search, showroom_id } = req.query;
     try {
         let queryStr = `
             SELECT d.id, d.name, d.row_count, d.column_count, d.created_at,
@@ -217,9 +217,14 @@ export const listAnalyzedDatasets = async (req, res, next) => {
         `;
         const queryParams = [organizationId];
 
+        if (showroom_id) {
+            queryParams.push(showroom_id);
+            queryStr += ` AND d.showroom_id = $${queryParams.length}`;
+        }
+
         if (search) {
             queryParams.push(`%${search}%`);
-            queryStr += ` AND d.name ILIKE $2`;
+            queryStr += ` AND d.name ILIKE $${queryParams.length}`;
         }
 
         queryStr += ` ORDER BY d.updated_at DESC NULLS LAST`;
@@ -259,6 +264,170 @@ export const saveDatasetThumbnail = async (req, res, next) => {
 
         return res.json({ success: true });
     } catch (err) { next(err); }
+};
+
+// ─────────────────────────────────────────────────────────────────
+// PATCH /api/data/:id/layout — save dashboard layout (viewMode + order arrays)
+// ─────────────────────────────────────────────────────────────────
+export const saveLayout = async (req, res, next) => {
+    const { id } = req.params;
+    const { organizationId } = req.user;
+    const { viewMode, chartOrder, insightOrder } = req.body;
+
+    try {
+        const check = await pool.query(
+            `SELECT id FROM datasets WHERE id = $1 AND organization_id = $2`,
+            [id, organizationId]
+        );
+        if (check.rows.length === 0) return res.status(404).json({ message: 'Dataset not found.' });
+
+        const layout = { viewMode, chartOrder, insightOrder };
+        await pool.query(`
+            UPDATE dataset_metadata
+            SET metadata = metadata || jsonb_build_object('dashboard_layout', $1::jsonb)
+            WHERE dataset_id = $2
+        `, [JSON.stringify(layout), id]);
+
+        return res.json({ success: true });
+    } catch (err) { next(err); }
+};
+
+// ─────────────────────────────────────────────────────────────────
+// GET /api/data/:id/layout — retrieve saved dashboard layout
+// ─────────────────────────────────────────────────────────────────
+export const getLayout = async (req, res, next) => {
+    const { id } = req.params;
+    const { organizationId } = req.user;
+
+    try {
+        const result = await pool.query(
+            `SELECT dm.metadata->'dashboard_layout' AS layout
+             FROM dataset_metadata dm
+             JOIN datasets d ON d.id = dm.dataset_id
+             WHERE dm.dataset_id = $1 AND d.organization_id = $2`,
+            [id, organizationId]
+        );
+        if (result.rows.length === 0) return res.status(404).json({ message: 'Dataset not found.' });
+
+        return res.json({ layout: result.rows[0].layout || null });
+    } catch (err) { next(err); }
+};
+
+// ─────────────────────────────────────────────────────────────────
+// POST /api/data/:id/edit-item — use LLM to edit a single chart or insight
+// Body: { type: 'chart'|'insight', index: number, instruction: string }
+// ─────────────────────────────────────────────────────────────────
+export const editDashboardItem = async (req, res, next) => {
+    const { id } = req.params;
+    const { organizationId } = req.user;
+    const { type, index, instruction } = req.body;
+
+    if (!type || index === undefined || !instruction?.trim()) {
+        return res.status(400).json({ message: 'type, index, and instruction are required.' });
+    }
+
+    try {
+        const result = await pool.query(`
+            SELECT d.name, dm.metadata
+            FROM datasets d
+            JOIN dataset_metadata dm ON d.id = dm.dataset_id
+            WHERE d.id = $1 AND d.organization_id = $2
+        `, [id, organizationId]);
+
+        if (result.rows.length === 0) return res.status(404).json({ message: 'Dataset not found.' });
+
+        const { name, metadata } = result.rows[0];
+        const analysis = metadata.llm_analysis;
+
+        if (!analysis) return res.status(400).json({ message: 'No analysis found. Analyze the dataset first.' });
+
+        const columnSummary = (metadata.columns || []).map(col => {
+            if (col.type === 'numeric') return `${col.name} (number)`;
+            if (col.type === 'date') return `${col.name} (date)`;
+            return `${col.name} (text)`;
+        }).join(', ');
+
+        let systemPrompt, userPrompt;
+
+        if (type === 'chart') {
+            const currentChart = analysis.charts?.[index];
+            if (!currentChart) return res.status(400).json({ message: `Chart at index ${index} not found.` });
+
+            systemPrompt = `You are a data analyst. Update a chart config based on the user's instruction.
+Available columns: ${columnSummary}
+Chart types: bar, line, area, pie, scatter, radar, composed, radialBar, treemap
+Return ONLY a JSON object: {"chart_type":"...","title":"...","x_axis_column":"...","y_axis_column":"...","description":"..."}`;
+
+            userPrompt = `Current chart: ${JSON.stringify(currentChart)}\n\nUser instruction: "${instruction.trim()}"`;
+
+        } else if (type === 'insight') {
+            const currentInsight = analysis.insights?.[index];
+            if (!currentInsight) return res.status(400).json({ message: `Insight at index ${index} not found.` });
+
+            const currentText = typeof currentInsight === 'string' ? currentInsight : currentInsight.description;
+
+            systemPrompt = `You are a data analyst for dataset "${name}".
+Available columns: ${columnSummary}
+Return ONLY a JSON object: {"type":"Insight","description":"A specific concrete fact about the data."}`;
+
+            userPrompt = `Current insight: "${currentText}"\n\nUser instruction: "${instruction.trim()}"`;
+
+        } else {
+            return res.status(400).json({ message: 'type must be "chart" or "insight".' });
+        }
+
+        const OLLAMA_URL = process.env.OLLAMA_URL || 'http://localhost:11434';
+        let llmRes;
+        try {
+            llmRes = await fetch(`${OLLAMA_URL}/api/generate`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    model: process.env.OLLAMA_MODEL || 'llama3',
+                    prompt: userPrompt,
+                    system: systemPrompt,
+                    stream: false,
+                    format: 'json',
+                    keep_alive: '15m',
+                    options: { num_ctx: 4096, num_predict: 300, temperature: 0.2 }
+                })
+            });
+        } catch (fetchErr) {
+            throw new Error(`Failed to connect to Ollama: ${fetchErr.message}`);
+        }
+
+        if (!llmRes.ok) throw new Error(`Ollama returned ${llmRes.status}`);
+
+        const llmData = await llmRes.json();
+        let updated;
+        try { updated = JSON.parse(llmData.response); }
+        catch { return res.status(500).json({ message: 'LLM returned invalid JSON.', raw: llmData.response }); }
+
+        // Merge updated item into the full analysis
+        const newAnalysis = { ...analysis };
+        if (type === 'chart') {
+            newAnalysis.charts = [...analysis.charts];
+            newAnalysis.charts[index] = { ...analysis.charts[index], ...updated };
+        } else {
+            newAnalysis.insights = [...analysis.insights];
+            newAnalysis.insights[index] = { ...analysis.insights[index], ...updated };
+        }
+
+        // Persist the updated analysis to the DB
+        await pool.query(`
+            UPDATE dataset_metadata
+            SET metadata = metadata || jsonb_build_object('llm_analysis', $1::jsonb)
+            WHERE dataset_id = $2
+        `, [JSON.stringify(newAnalysis), id]);
+
+        return res.json({ success: true, updated, analysis: newAnalysis });
+
+    } catch (err) {
+        if (err.message?.includes('ECONNREFUSED') || err.message?.includes('11434')) {
+            return res.status(503).json({ message: 'Ollama is not running. Please ensure Ollama is accessible on port 11434.' });
+        }
+        next(err);
+    }
 };
 
 // ─────────────────────────────────────────────────────────────────
@@ -377,36 +546,101 @@ export const chatWithDataset = async (req, res, next) => {
 
         // 3. Call Ollama to convert the question to SQL
         const OLLAMA_URL = process.env.OLLAMA_URL || 'http://localhost:11434';
-        const systemPrompt = `You are a SQL expert assistant. Translate the user's plain-English question into a PostgreSQL SELECT query.
-        DATASET: "${name}"
-        TABLE: "${storage_table_name}"
-        COLUMNS:
-        ${columnSchema}
+        const systemPrompt = `You are a PostgreSQL expert. Convert the user's English question into one valid PostgreSQL SELECT query.
 
-        RULES:
-        - Use ONLY the exact column names listed above (already lowercase).
-        - ALL columns are stored as TEXT — always CAST for numeric/date ops.
-        - Use the literal table name "${storage_table_name}".
-        - Only generate SELECT queries — never INSERT/UPDATE/DELETE/DROP.
-        - Use ILIKE '%text%' for case-insensitive partial text matching. Never use exact = for text fields.
-        - NEVER select the internal "_id" column.
-        - If you use an aggregate function (SUM, COUNT, MAX), any non-aggregated column MUST be in a GROUP BY clause.
-- Return ONLY a JSON object with two fields: "description" and "sql_query".
-- "description": A natural language sentence answering the question. IMPORTANT: wherever you would put a computed value (a count, sum, avg, name, etc.), instead write the SQL column alias in double curly braces, e.g. "{{count}}" or "{{total_revenue}}". Example: "Rakesh sold {{count}} bikes in February."
-- "sql_query": a valid runnable PostgreSQL SELECT query. Give each computed column a clear alias (e.g. SELECT COUNT(*) AS count).
-RESPOND IN PURE JSON ONLY — no markdown, no explanation outside the JSON.`;
+DATASET: "${name}"
+TABLE: "${storage_table_name}"
+COLUMNS (all stored as TEXT in PostgreSQL):
+${columnSchema}
 
-        const llmRes = await fetch(`${OLLAMA_URL}/api/generate`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                model: process.env.OLLAMA_MODEL || 'llama3',
-                prompt: `User question: ${question}`,
-                system: systemPrompt,
-                stream: false,
-                format: 'json'
-            })
-        });
+RULES:
+1. Use ONLY the exact column names listed above. Never invent column names.
+2. Every column is TEXT. Always CAST for math or date operations:
+   - Numbers: CAST("col" AS NUMERIC)
+   - Dates: CAST("col" AS DATE)
+   - In WHERE too: WHERE CAST("price" AS NUMERIC) > 500
+3. Text matching: use ILIKE for filters (e.g. WHERE region ILIKE 'North'). Never use = for user-supplied text values.
+4. Multiple conditions: use AND / OR as needed (e.g. WHERE region ILIKE 'North' AND CAST("year" AS NUMERIC) = 2023).
+5. Never reference the "_id" column. Only generate SELECT statements.
+6. Aggregates (SUM/COUNT/AVG/MAX/MIN): every non-aggregated SELECT column must be in GROUP BY.
+7. Every computed value needs an AS alias: COUNT(*) AS total_rows, SUM(...) AS total_units.
+8. COUNT(*) vs SUM: 
+   - COUNT(*) = counts rows/transactions → use for "how many records / orders / entries"
+   - SUM("col") = adds up values in a column → use for "how many units sold / total revenue / total quantity"
+9. Top / most / best / highest → ORDER BY alias DESC LIMIT 1
+   Lowest / worst / least / minimum → ORDER BY alias ASC LIMIT 1
+   Top N / list → ORDER BY alias DESC LIMIT N (default 10 if unspecified)
+10. "Show / list / find / display" without aggregation → SELECT * ... LIMIT 20
+11. Distinct count: "how many unique X" → COUNT(DISTINCT "col") AS unique_count
+12. Every {{placeholder}} in description MUST exactly match an AS alias in sql_query.
+
+OUTPUT — respond with ONLY this JSON, no markdown:
+{"description": "One sentence answering the question with {{alias}} for computed values.", "sql_query": "Complete PostgreSQL SELECT query."}
+
+EXAMPLES:
+
+Q: Show all sales from the West region
+{"description":"Here are the sales records from the West region.","sql_query":"SELECT * FROM \\"${storage_table_name}\\" WHERE region ILIKE 'West' LIMIT 20"}
+
+Q: How many total units were sold in the North region?
+{"description":"{{total_units}} units were sold in the North region.","sql_query":"SELECT SUM(CAST(units_sold AS NUMERIC)) AS total_units FROM \\"${storage_table_name}\\" WHERE region ILIKE 'North'"}
+
+Q: How many orders were placed?
+{"description":"There are {{total_rows}} orders in total.","sql_query":"SELECT COUNT(*) AS total_rows FROM \\"${storage_table_name}\\""}
+
+Q: Which salesperson sold the most units?
+{"description":"{{salesperson}} sold the most units with {{total_units}} units.","sql_query":"SELECT salesperson, SUM(CAST(units_sold AS NUMERIC)) AS total_units FROM \\"${storage_table_name}\\" GROUP BY salesperson ORDER BY total_units DESC LIMIT 1"}
+
+Q: What is the total revenue by region?
+{"description":"Here is the total revenue broken down by region.","sql_query":"SELECT region, ROUND(SUM(CAST(revenue AS NUMERIC)), 2) AS total_revenue FROM \\"${storage_table_name}\\" GROUP BY region ORDER BY total_revenue DESC"}
+
+Q: What is the average selling price?
+{"description":"The average selling price is {{avg_price}}.","sql_query":"SELECT ROUND(AVG(CAST(price AS NUMERIC)), 2) AS avg_price FROM \\"${storage_table_name}\\""}
+
+Q: Show sales where price is greater than 500
+{"description":"Here are the sales where price exceeds 500.","sql_query":"SELECT * FROM \\"${storage_table_name}\\" WHERE CAST(price AS NUMERIC) > 500 LIMIT 20"}
+
+Q: How many unique products are there?
+{"description":"There are {{unique_count}} unique products in the dataset.","sql_query":"SELECT COUNT(DISTINCT product) AS unique_count FROM \\"${storage_table_name}\\""}
+
+Q: Top 5 regions by total units sold
+{"description":"Here are the top 5 regions by total units sold.","sql_query":"SELECT region, SUM(CAST(units_sold AS NUMERIC)) AS total_units FROM \\"${storage_table_name}\\" GROUP BY region ORDER BY total_units DESC LIMIT 5"}
+
+Q: Show sales from the North region in 2023
+{"description":"Here are the sales from the North region in 2023.","sql_query":"SELECT * FROM \\"${storage_table_name}\\" WHERE region ILIKE 'North' AND CAST(date AS DATE) >= '2023-01-01' AND CAST(date AS DATE) <= '2023-12-31' LIMIT 20"}
+`;
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 180000); // 180s timeout
+
+        let llmRes;
+        try {
+            llmRes = await fetch(`${OLLAMA_URL}/api/generate`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    model: process.env.OLLAMA_MODEL || 'llama3',
+                    prompt: `User question: ${question}`,
+                    system: systemPrompt,
+                    stream: false,
+                    format: 'json',
+                    keep_alive: '15m',     // keep model loaded between chat messages
+                    options: {
+                        num_predict: 600,  // chat only needs description + one SQL query
+                        temperature: 0.1   // deterministic output = more reliable SQL
+                    }
+                }),
+                signal: controller.signal
+            });
+        } catch (fetchErr) {
+            if (fetchErr.name === 'AbortError') {
+                throw new Error("Ollama request timed out after 3 minutes. This usually happens if the model is slow or system resources are high.");
+            }
+            throw new Error(`Failed to connect to Ollama: ${fetchErr.message}`);
+        } finally {
+            clearTimeout(timeoutId);
+        }
+
         if (!llmRes.ok) throw new Error(`Ollama returned ${llmRes.status}`);
         const llmData = await llmRes.json();
 
@@ -434,20 +668,42 @@ RESPOND IN PURE JSON ONLY — no markdown, no explanation outside the JSON.`;
         // 6. Inject actual SQL result values into the {{placeholders}} in the description
         if (queryResult.rows.length > 0) {
             const firstRow = queryResult.rows[0];
-            description = description.replace(/\{\{\s*([^}]+)\s*\}\}/g, (match, colName) => {
-                const key = colName.trim();
-                if (firstRow[key] !== undefined && firstRow[key] !== null) {
-                    const val = firstRow[key];
-                    const numVal = parseFloat(val);
-                    if (!isNaN(numVal) && numVal % 1 !== 0) return numVal.toFixed(2);
-                    return val;
+
+            // Build normalized alias map (lowercase, underscores) for fuzzy matching
+            const aliasMap = {};
+            for (const [key, val] of Object.entries(firstRow)) {
+                const normKey = key.toLowerCase().replace(/\s+/g, '_');
+                let displayVal;
+                if (val === null || val === undefined || val === '') {
+                    displayVal = null;
+                } else {
+                    const num = parseFloat(String(val).replace(/[^0-9.-]/g, ''));
+                    if (!isNaN(num)) {
+                        displayVal = Number.isInteger(num) || !String(val).includes('.')
+                            ? num.toLocaleString('en-IN')
+                            : num.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    } else {
+                        displayVal = String(val);
+                    }
                 }
-                return match; // leave untouched if column not in result
+                aliasMap[normKey] = displayVal;
+            }
+
+            description = description.replace(/\{\{\s*([^}]+?)\s*\}\}/g, (match, rawKey) => {
+                const normKey = rawKey.trim().toLowerCase().replace(/\s+/g, '_');
+                const resolved = aliasMap[normKey];
+                if (resolved === null || resolved === undefined) return '';
+                return resolved;
             });
         }
 
-        // Fallback: if query returned 0 rows or LLM used a mismatched alias, safely replace remaining placeholders with 0
-        description = description.replace(/\{\{[^}]+\}\}/gi, '0');
+        // Fallback: strip any remaining {{placeholders}} cleanly without leaving "[N/A]" mid-sentence
+        description = description
+            .replace(/\s*\{\{[^}]+\}\}/gi, '')
+            .replace(/\{\{[^}]+\}\}\s*/gi, '')
+            .replace(/\s{2,}/g, ' ')
+            .replace(/\s([.,])/g, '$1')
+            .trim();
 
         return res.json({
             description,

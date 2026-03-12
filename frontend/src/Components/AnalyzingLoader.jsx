@@ -77,19 +77,26 @@ const STEPS = [
   { msg: "Reading dataset structure...", sub: "Mapping columns and inferring data types..." },
   { msg: "Profiling metadata...", sub: "Calculating min, max, averages, and detecting categories..." },
   { msg: "Consulting Llama3 LLM...", sub: "Passing context to local docker container safely..." },
+  { msg: "Generating chart recommendations...", sub: "Selecting the best chart types for your data shape..." },
+  { msg: "Building insight queries...", sub: "Writing SQL to surface key statistics from your dataset..." },
+  { msg: "Running insight queries...", sub: "Executing aggregations against your data..." },
   { msg: "Generating Dashboard...", sub: "Designing optimal charts, filters, and insights based on data flow..." },
-  { msg: "Finalizing layout...", sub: "Almost there! Preparing your insight cards..." }
+  { msg: "Almost there...", sub: "LLM inference can take 1–3 minutes on first run. Hang tight!" },
+  { msg: "Finalizing layout...", sub: "Preparing your insight cards and chart configs..." }
 ];
 
 export default function AnalyzingLoader({ datasetId, onAnalysisComplete, onError }) {
   const [stepIdx, setStepIdx] = useState(0);
 
   useEffect(() => {
-    // Cycle through the fake "steps" just to keep the user engaged
-    // since Ollama might take 10-30 seconds to answer locally
+    // Cycle through steps every 15s; loop back to step 2 ("Consulting LLM")
+    // so the UI stays alive for long Ollama inference runs (1–4 min on CPU)
     const timer = setInterval(() => {
-      setStepIdx(current => Math.min(current + 1, STEPS.length - 1));
-    }, 4000);
+      setStepIdx(current => {
+        if (current >= STEPS.length - 1) return 2; // loop back to LLM step
+        return current + 1;
+      });
+    }, 15000);
 
     return () => clearInterval(timer);
   }, []);

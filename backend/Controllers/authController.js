@@ -210,6 +210,41 @@ export const loginUser = async (req, res, next) => {
 };
 
 // ─────────────────────────────────────────────
+// GET CURRENT USER PROFILE
+// GET /api/auth/me  (requires verifyToken)
+// ─────────────────────────────────────────────
+export const getMe = async (req, res, next) => {
+    const { userId } = req.user;
+    try {
+        const result = await pool.query(
+            `SELECT
+                u.id, u.first_name, u.last_name, u.email, u.role,
+                u.organization_id, u.showroom_id,
+                o.name AS org_name,
+                s.name AS showroom_name
+             FROM users u
+             LEFT JOIN organizations o ON o.id = u.organization_id
+             LEFT JOIN showrooms s ON s.id = u.showroom_id
+             WHERE u.id = $1`,
+            [userId]
+        );
+        if (!result.rows.length) return res.status(404).json({ message: "User not found" });
+        const u = result.rows[0];
+        return res.json({
+            id: u.id,
+            firstName: u.first_name,
+            lastName: u.last_name,
+            email: u.email,
+            role: u.role,
+            organizationId: u.organization_id,
+            showroomId: u.showroom_id,
+            orgName: u.org_name,
+            showroomName: u.showroom_name,
+        });
+    } catch (err) { next(err); }
+};
+
+// ─────────────────────────────────────────────
 // SUBMIT SUPPORT TICKET 
 // POST /api/auth/support
 // ─────────────────────────────────────────────

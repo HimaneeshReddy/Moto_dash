@@ -4,7 +4,8 @@ import {
     listShowrooms, createShowroom, updateShowroom, deleteShowroom,
     listMembers, removeMember, reassignShowroom,
     listInvites, sendInvite, cancelInvite,
-    listRequests, approveRequest, rejectRequest
+    listRequests, approveRequest, rejectRequest,
+    getOrgOverview
 } from "../Controllers/adminController.js";
 
 const router = express.Router();
@@ -32,5 +33,8 @@ router.delete("/invites/:id", verifyManager, cancelInvite); // Managers can canc
 router.get("/requests", verifyManager, listRequests);
 router.post("/requests/:id/approve", verifyOwner, approveRequest);
 router.post("/requests/:id/reject", verifyOwner, rejectRequest);
+
+// ── Owner Overview ─────────────────────────────────────────────
+router.get("/overview", verifyOwner, getOrgOverview);
 
 export default router;

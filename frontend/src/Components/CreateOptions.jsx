@@ -7,7 +7,7 @@ import AnalyticsIcon from '@mui/icons-material/Analytics';
 import TableChartIcon from '@mui/icons-material/TableChart';
 import PieChartIcon from '@mui/icons-material/PieChart';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import { uploadCsv } from '../services/api.js';
+import { uploadCsv, testDbConnection, importDbTable } from '../services/api.js';
 import AnalyzingLoader from './AnalyzingLoader.jsx';
 
 const Container = styled.div`
@@ -205,6 +205,12 @@ const Button = styled.button`
   cursor: pointer;
   transition: all 0.2s;
 
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+
   ${props => props.primary ? `
     background-color: #3457B2;
     color: white;
@@ -268,8 +274,13 @@ const CreateOptions = ({ onAnalysisSuccess }) => {
     port: "",
     username: "",
     password: "",
-    databaseName: ""
+    databaseName: "",
+    tableName: "",
   });
+  const [dbLoading, setDbLoading] = useState(false);
+  const [availableTables, setAvailableTables] = useState([]);
+  const [testSuccess, setTestSuccess] = useState(false);
+  const [pendingDatasetName, setPendingDatasetName] = useState("");
 
   const handleCsvSubmit = async (e) => {
     e.preventDefault();
@@ -290,12 +301,12 @@ const CreateOptions = ({ onAnalysisSuccess }) => {
   };
 
   const handleAnalysisComplete = (analysisData) => {
-    const savedDatasetId = analyzingDatasetId; // capture before clearing
+    const savedDatasetId = analyzingDatasetId;
+    const name = pendingDatasetName || csvForm.datasetName;
     setLoading(false);
     setAnalyzingDatasetId(null);
-    // Let the parent DashboardPage handle routing to the DashboardView
-    // Pass datasetId as the 3rd arg so DashboardView can fetch chart rows
-    onAnalysisSuccess(analysisData, csvForm.datasetName, savedDatasetId);
+    setPendingDatasetName("");
+    onAnalysisSuccess(analysisData, name, savedDatasetId);
   };
 
   const handleAnalysisError = (errMsg) => {
@@ -304,10 +315,56 @@ const CreateOptions = ({ onAnalysisSuccess }) => {
     setAnalyzingDatasetId(null);
   };
 
-  const handleDbSubmit = (e) => {
-    e.preventDefault();
-    console.log("Submitting DB Connection:", dbForm);
-    // TODO: Call API
+  const handleTestConnection = async () => {
+    setDbLoading(true);
+    setErrorMsg("");
+    setSuccessMsg("");
+    setAvailableTables([]);
+    setTestSuccess(false);
+    setDbForm(f => ({ ...f, tableName: "" }));
+    try {
+      const res = await testDbConnection({
+        dbType: dbForm.dbType,
+        host: dbForm.host,
+        port: dbForm.port,
+        username: dbForm.username,
+        password: dbForm.password,
+        databaseName: dbForm.databaseName,
+      });
+      setAvailableTables(res.tables || []);
+      setTestSuccess(true);
+      setSuccessMsg(`Connected! Found ${res.tables.length} table${res.tables.length !== 1 ? 's' : ''}.`);
+    } catch (err) {
+      setErrorMsg(err.message);
+    } finally {
+      setDbLoading(false);
+    }
+  };
+
+  const handleDbSubmit = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    setErrorMsg("");
+    if (!testSuccess) { setErrorMsg("Please test the connection first."); return; }
+    if (!dbForm.tableName) { setErrorMsg("Please select a table to import from the dropdown."); return; }
+    if (!dbForm.datasetName.trim()) { setErrorMsg("Please enter a Dataset Name."); return; }
+    setDbLoading(true);
+    try {
+      const res = await importDbTable({
+        datasetName: dbForm.datasetName,
+        dbType: dbForm.dbType,
+        host: dbForm.host,
+        port: dbForm.port,
+        username: dbForm.username,
+        password: dbForm.password,
+        databaseName: dbForm.databaseName,
+        tableName: dbForm.tableName,
+      });
+      setPendingDatasetName(dbForm.datasetName);
+      setAnalyzingDatasetId(res.dataset.id);
+    } catch (err) {
+      setErrorMsg(err.message);
+      setDbLoading(false);
+    }
   };
 
   if (analyzingDatasetId) {
@@ -412,20 +469,23 @@ const CreateOptions = ({ onAnalysisSuccess }) => {
 
         {view === "connect_db" && (
           <FormContainer onSubmit={handleDbSubmit}>
-            <BackButton type="button" onClick={() => setView("selection")}>
+            <BackButton type="button" onClick={() => { setView("selection"); setAvailableTables([]); setTestSuccess(false); setErrorMsg(""); setSuccessMsg(""); }}>
               <ArrowBackIcon fontSize="small" /> Back to options
             </BackButton>
 
             <Header style={{ textAlign: 'left' }}>
               <Title style={{ fontSize: '24px' }}>Connect Database</Title>
-              <Subtitle>Link an external database to query directly</Subtitle>
+              <Subtitle>Link an external database to import a table</Subtitle>
             </Header>
+
+            {errorMsg && <Msg error>{errorMsg}</Msg>}
+            {successMsg && <Msg>{successMsg}</Msg>}
 
             <InputGroup>
               <label>Dataset Name (Label)</label>
               <input
                 type="text"
-                placeholder="e.g. Production Database DB"
+                placeholder="e.g. Production Sales DB"
                 required
                 value={dbForm.datasetName}
                 onChange={e => setDbForm({ ...dbForm, datasetName: e.target.value })}
@@ -436,7 +496,7 @@ const CreateOptions = ({ onAnalysisSuccess }) => {
               <label>Database Type</label>
               <select
                 value={dbForm.dbType}
-                onChange={e => setDbForm({ ...dbForm, dbType: e.target.value })}
+                onChange={e => { setDbForm({ ...dbForm, dbType: e.target.value, tableName: "" }); setAvailableTables([]); setTestSuccess(false); }}
               >
                 <option value="postgresql">PostgreSQL</option>
                 <option value="mysql">MySQL</option>
@@ -451,15 +511,14 @@ const CreateOptions = ({ onAnalysisSuccess }) => {
                   placeholder="localhost"
                   required
                   value={dbForm.host}
-                  onChange={e => setDbForm({ ...dbForm, host: e.target.value })}
+                  onChange={e => { setDbForm({ ...dbForm, host: e.target.value }); setTestSuccess(false); setAvailableTables([]); }}
                 />
               </InputGroup>
               <InputGroup>
                 <label>Port</label>
                 <input
                   type="text"
-                  placeholder="5432"
-                  required
+                  placeholder={dbForm.dbType === "mysql" ? "3306" : "5432"}
                   value={dbForm.port}
                   onChange={e => setDbForm({ ...dbForm, port: e.target.value })}
                 />
@@ -470,10 +529,10 @@ const CreateOptions = ({ onAnalysisSuccess }) => {
               <label>Database Name</label>
               <input
                 type="text"
-                placeholder="e.g. dashflow_db"
+                placeholder="e.g. my_database"
                 required
                 value={dbForm.databaseName}
-                onChange={e => setDbForm({ ...dbForm, databaseName: e.target.value })}
+                onChange={e => { setDbForm({ ...dbForm, databaseName: e.target.value }); setTestSuccess(false); setAvailableTables([]); }}
               />
             </InputGroup>
 
@@ -493,16 +552,46 @@ const CreateOptions = ({ onAnalysisSuccess }) => {
                 <input
                   type="password"
                   placeholder="••••••••"
-                  required
                   value={dbForm.password}
                   onChange={e => setDbForm({ ...dbForm, password: e.target.value })}
                 />
               </InputGroup>
             </FormRow>
 
+            {/* Step 2: Table picker — shown after successful test */}
+            {testSuccess && availableTables.length > 0 && (
+              <InputGroup>
+                <label>Select Table to Import</label>
+                <select
+                  required
+                  value={dbForm.tableName}
+                  onChange={e => setDbForm({ ...dbForm, tableName: e.target.value })}
+                >
+                  <option value="">— choose a table —</option>
+                  {availableTables.map(t => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </select>
+              </InputGroup>
+            )}
+
             <ButtonGroup>
-              <Button type="button" onClick={() => console.log("Test Connection")}>Test Connection</Button>
-              <Button primary type="submit">Connect Data</Button>
+              <Button
+                type="button"
+                disabled={dbLoading}
+                onClick={handleTestConnection}
+                style={testSuccess ? { borderColor: '#10b981', color: '#10b981' } : {}}
+              >
+                {dbLoading && !analyzingDatasetId ? "Testing…" : testSuccess ? "✓ Connected" : "Test Connection"}
+              </Button>
+              <Button
+                primary
+                type="button"
+                disabled={dbLoading}
+                onClick={handleDbSubmit}
+              >
+                {dbLoading && analyzingDatasetId ? "Importing…" : "Import & Analyze"}
+              </Button>
             </ButtonGroup>
           </FormContainer>
         )}

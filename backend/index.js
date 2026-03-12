@@ -29,8 +29,17 @@ app.use("/api/admin", adminRoute)
 
 const PORT = process.env.PORT || 5000
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`)
 })
+
+// Disable Node's built-in timeouts so long-running Ollama inference
+// requests are never cut off regardless of how long they take.
+// server.setTimeout(0)     — disables the 2-min socket idle timeout
+// server.requestTimeout=0  — disables the 5-min (300s) per-request timeout
+// server.headersTimeout=0  — disables the 60s headers timeout
+server.setTimeout(0);
+server.requestTimeout = 0;
+server.headersTimeout = 0;
 
 export default app

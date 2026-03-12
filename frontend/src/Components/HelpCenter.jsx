@@ -295,87 +295,87 @@ const SubmitButton = styled.button`
 
 const faqData = [
   {
-    category: "User Management & Security",
+    category: "User Management & Roles",
     icon: <SecurityIcon />,
     questions: [
-      { q: "How do I reset my password?", a: "You can request a password reset from the login page. Follow the link sent to your email to set a new password." },
-      { q: "How do I manage user roles?", a: "Admins can manage user roles (Admin, Editor, Viewer) in the User Management settings." },
-      { q: "Is my data secure?", a: "Yes, we use industry-standard encryption and role-based access control to protect your data." },
-      { q: "Can I restrict access to specific dashboards?", a: "Yes, you can set permissions for individual dashboards to control who can view or edit them." },
-      { q: "How does the signup process work?", a: "New users can sign up via the registration form. Admins can also invite users to their organization." },
-      { q: "What are organization-level permissions?", a: "These permissions apply across the entire organization, managed by the organization owner." }
+      { q: "What user roles exist in MotoDash?", a: "MotoDash has three roles: Owner, Manager, and Member. The Owner manages the entire organisation and all showrooms. Managers oversee their assigned showroom and its members. Members can upload data and view dashboards within their showroom." },
+      { q: "How do I invite a new member to my showroom?", a: "Owners and Managers can invite users from the Org Console. Go to the Members tab, click 'Invite Member', enter their email and assign them a role. They will receive an invite link to complete registration." },
+      { q: "Can a member belong to multiple showrooms?", a: "No. Each user is assigned to exactly one showroom. If they need access to another showroom, a new account must be created for that showroom." },
+      { q: "How does the Owner differ from a Manager?", a: "The Owner has full access across all showrooms in the organisation, including billing and Org Console settings. Managers are scoped to a single showroom and cannot manage other showrooms or org-level settings." },
+      { q: "How do I remove a member from my organisation?", a: "In the Org Console under the Members tab, find the user and click the delete icon. This deactivates their account and revokes access immediately." },
+      { q: "What happens to data when a member is removed?", a: "Datasets and dashboards uploaded by a removed member remain in the system and are still accessible by Managers and Owners." }
     ]
   },
   {
-    category: "Data Ingestion & Connections",
+    category: "Data Upload & Datasets",
     icon: <StorageIcon />,
     questions: [
-      { q: "How do I upload a CSV file?", a: "Go to the 'Create' page, select 'Upload CSV', and drag & drop your file or browse to select it." },
-      { q: "How do I connect to a MongoDB database?", a: "In the 'Connect Database' section, choose MongoDB and provide your connection string and credentials." },
-      { q: "What data formats are supported?", a: "We currently support CSV, JSON, and direct connections to SQL (MySQL, PostgreSQL) and NoSQL (MongoDB) databases." },
-      { q: "How does data validation work?", a: "Uploaded data is automatically validated against schema rules to identify type mismatches or missing values." },
-      { q: "Can I schedule data refreshes?", a: "Yes, for database connections, you can set up a schedule to automatically refresh the data." },
-      { q: "How do I handle connection errors?", a: "Check your credentials and firewall settings. If issues persist, contact support via this Help Center." }
+      { q: "How do I upload sales data for my showroom?", a: "Click 'Create' in the sidebar, then select 'Upload CSV'. Choose the CSV file from your computer — MotoDash will automatically parse and store it linked to your showroom." },
+      { q: "What file formats are supported for upload?", a: "Currently, MotoDash supports CSV file uploads. Ensure your file has a clear header row, as column names are used to generate insights and chart labels." },
+      { q: "Can I upload multiple datasets for the same showroom?", a: "Yes. Each upload creates a separate dataset. You can manage all your showroom's datasets from the Datasets section, where you can view, rename, or delete them." },
+      { q: "What happens after I upload a CSV?", a: "MotoDash saves the dataset and triggers the AI analysis pipeline. Within a short time, your dataset will be marked as 'Analyzed' and a full dashboard of insights will be available." },
+      { q: "Is there a size limit on CSV uploads?", a: "Files should ideally be under 50 MB for best performance. Very large files may take longer to process through the AI analysis pipeline." },
+      { q: "How do I delete a dataset I no longer need?", a: "Go to the Datasets section, find the dataset card, and click the delete icon. Deleting a dataset also removes its associated AI-generated dashboard." }
     ]
   },
   {
-    category: "Dashboard Generation",
+    category: "AI-Powered Dashboards",
     icon: <DashboardIcon />,
     questions: [
-      { q: "How do I create a new dashboard?", a: "Click 'Create New' on the dashboard, select your dataset, and use the AI or manual tools to build charts." },
-      { q: "How does the AI dashboard generation work?", a: "Our AI analyzes your data schema and recommends the best visualizations to highlight key insights." },
-      { q: "Can I customize AI-generated dashboards?", a: "Absolutely. You can edit, resize, and rearrange any widget created by the AI." },
-      { q: "How do I ensure consistency in my dashboards?", a: "Use the built-in templates and style guides to maintain a consistent look and feel." },
-      { q: "What chart types are available?", a: "We support bar, line, pie, scatter, area charts, tables, and metric cards." },
-      { q: "How do I delete a dashboard?", a: "Go to the dashboard settings and select 'Delete'. Warning: This action cannot be undone." }
+      { q: "How does MotoDash generate dashboards automatically?", a: "After you upload a CSV, our AI analyses the data columns, detects patterns, and generates a tailored dashboard with the most relevant charts — including sales trends, top performers, inventory breakdowns, and more." },
+      { q: "What types of charts are included in auto-generated dashboards?", a: "The AI generates bar charts, line charts, pie charts, scatter plots, and metric summary cards based on what best represents your data. The selection adapts to your specific dataset." },
+      { q: "Can I view a dashboard from a previous upload?", a: "Yes. Go to Dashboards in the sidebar to see all analyzed datasets. Clicking any entry opens its full dashboard view with all AI-generated charts." },
+      { q: "Can an Owner view dashboards from all showrooms?", a: "Yes. Owners can access dashboards from any showroom either via the Org Console's Showrooms tab or directly from the Owner Home page by clicking a showroom card." },
+      { q: "How long does AI analysis take after upload?", a: "Analysis typically completes within a few seconds to a minute depending on file size. The dataset status will change from 'Pending' to 'Analyzed' once ready." },
+      { q: "Will my dashboard update if I re-upload data?", a: "Re-uploading creates a new dataset and its own dashboard. Each dataset maintains its own independent AI analysis and dashboard." }
     ]
   },
   {
-    category: "AI Insights & Chatbot",
+    category: "AI Insights & Analysis",
     icon: <InsightsIcon />,
     questions: [
-      { q: "How do I ask questions to the chatbot?", a: "Use the natural language chat interface to ask questions about your data, like 'Show me sales trend'." },
-      { q: "What kind of insights can the AI provide?", a: "The AI provides trends, anomaly detection, correlation analysis, and summary statistics." },
-      { q: "How does the recommendation engine work?", a: "It looks at data patterns to suggest charts and filters that are most relevant to your analysis." },
-      { q: "Can I save chat results to a dashboard?", a: "Yes, you can pin any chart or answer generated by the chatbot directly to your dashboard." },
-      { q: "Does the AI learn from my data?", a: "The AI models are pre-trained but adapt to your schema context. We do not use your data for training public models." },
-      { q: "How accurate are the AI predictions?", a: "Predictions are based on statistical models. While generally accurate, they should be used as guidance." }
+      { q: "What kind of insights does the AI provide?", a: "The AI summarises key findings from your data — identifying top-selling models, peak sales periods, underperforming inventory, regional trends, and statistical outliers relevant to automotive showroom operations." },
+      { q: "How does the AI know what insights are relevant?", a: "The AI reads your column names and data types to understand the context (e.g. sales figures, dates, vehicle models) and generates insights specific to automotive dealership and showroom data." },
+      { q: "Can I see a written summary of my data?", a: "Yes. Each analyzed dashboard includes a natural language summary generated by the AI that highlights the most important takeaways from your dataset." },
+      { q: "Does the AI learn from my data over time?", a: "The AI uses pre-trained models that adapt to the structure and context of each uploaded dataset. Your data is never used to train or influence results for other organisations." },
+      { q: "What if the AI-generated charts don't look right?", a: "If a chart seems incorrect, it may be due to inconsistent column naming or data formatting in your CSV. Ensure date columns are formatted consistently and numeric columns contain no text values." },
+      { q: "Are the AI insights suitable for business decisions?", a: "Yes, insights are designed to support data-driven decisions. However, we recommend validating critical findings against your own records before acting on them." }
     ]
   },
   {
-    category: "Interaction & Layout",
+    category: "Organisation & Showroom Management",
     icon: <ViewQuiltIcon />,
     questions: [
-      { q: "How do I rearrange charts on the dashboard?", a: "Simply drag and drop charts to your desired position using the drag handle." },
-      { q: "How do I apply filters?", a: "Use the filter panel on the right to apply global filters to all charts on the dashboard." },
-      { q: "Can I use pre-built templates?", a: "Yes, we offer a library of industry-specific templates to get you started quickly." },
-      { q: "How do I resize widgets?", a: "Click and drag the bottom-right corner of any widget to resize it." },
-      { q: "How do I save my layout changes?", a: "Layout changes are saved automatically as you make them." },
-      { q: "Can I create drill-down views?", a: "Yes, you can configure charts to drill down into more detailed data upon interaction." }
+      { q: "How do I create a new showroom?", a: "Owners can create showrooms from the Org Console under the Showrooms tab. Click 'Add Showroom', provide a name and location, and it will be immediately available for member assignment." },
+      { q: "How do I view all showrooms at a glance?", a: "The Owner Home page (visible only to Owners) displays all showrooms in your organisation with KPIs including member count, dataset count, total data rows, and last upload date." },
+      { q: "Can I click a showroom to see its dashboards?", a: "Yes. On the Owner Home page, clicking any showroom card slides open a panel showing all analyzed datasets for that showroom. You can open any dashboard directly from there." },
+      { q: "How do I rename or edit a showroom's details?", a: "In the Org Console's Showrooms tab, click the edit (pencil) icon on a showroom card to update its name or location." },
+      { q: "What happens if I delete a showroom?", a: "Deleting a showroom removes it and all associated member assignments. Datasets linked to that showroom will also be removed. This action is irreversible — proceed with caution." },
+      { q: "Can members see other showrooms in their organisation?", a: "No. Members can only see data and dashboards within their own assigned showroom. Cross-showroom visibility is restricted to Owners." }
     ]
   },
   {
-    category: "Data Editing & Management",
+    category: "Navigation & Account",
     icon: <EditIcon />,
     questions: [
-      { q: "How do I edit data directly?", a: "Use the Data Editor view to modify cell values. Changes are logged for audit purposes." },
-      { q: "How do I add or delete columns?", a: "You can add calculated columns or remove existing ones via the Column Manager." },
-      { q: "How do I search and filter my dataset?", a: "The Data View provides a powerful search bar and column-specific filters." },
-      { q: "Can I undo data changes?", a: "Yes, simple edits can be undone. Major schema changes may require restoring from a backup." },
-      { q: "How do I create calculated fields?", a: "Use the formula editor to create new fields based on existing data." },
-      { q: "What happens if I delete a row?", a: "The row is soft-deleted initially and can be recovered within 30 days." }
+      { q: "Where can I view and edit my profile?", a: "Click 'Profile' in the bottom of the sidebar. Your profile page shows your name, role, organisation, and showroom. You can update your first and last name from this page." },
+      { q: "How do I log out?", a: "Click 'Logout' at the very bottom of the left sidebar. This clears your session and returns you to the login page." },
+      { q: "What does the Home page show for regular members?", a: "The Home page shows your recent dashboard activity, quick-access cards to your latest datasets, and an overview of your showroom's uploads." },
+      { q: "How do I navigate to a specific dashboard?", a: "Use the 'Dashboards' link in the sidebar to see a list of all your analyzed datasets. Click any entry to open its full AI-generated dashboard." },
+      { q: "What is the Org Console and who can access it?", a: "The Org Console is available to Owners and Managers. It provides tools to manage showrooms, invite and remove members, and oversee the organisation's data activity." },
+      { q: "I'm an Owner — why do I see a different Home page?", a: "Owners see a specialised Home page showing an org-wide overview with KPIs and showroom cards. This gives a bird's-eye view of the entire organisation rather than a single showroom." }
     ]
   },
   {
     category: "Reporting & Exporting",
     icon: <AssessmentIcon />,
     questions: [
-      { q: "How do I export a dashboard as PDF?", a: "Click the 'Export' button and select PDF. You can customize the layout before downloading." },
-      { q: "Can I export raw data as CSV?", a: "Yes, each chart allows you to export its underlying data as a CSV file." },
-      { q: "What does the Usage Activity Report show?", a: "It shows who viewed your dashboards, when, and what interactions they performed." },
-      { q: "How do I view the Data Change Report?", a: "Admins can access the Audit Log to see a history of all data modifications." },
-      { q: "Can I schedule email reports?", a: "Yes, you can schedule automated email delivery of dashboard snapshots." },
-      { q: "Where can I find the Dashboard Summary Report?", a: "It is available in the 'Reports' tab for each dashboard." }
+      { q: "Can I export my dashboard charts?", a: "Each chart on the dashboard can be individually exported. Use the export option on each chart to download it as an image or data file." },
+      { q: "Can I share a dashboard with someone outside MotoDash?", a: "Currently dashboards are accessible only to authenticated users within your organisation. Sharing outside requires the recipient to have a user account." },
+      { q: "Can I print a dashboard report?", a: "Yes. Use your browser's print function (Ctrl+P or Cmd+P) while viewing a dashboard to print or save it as a PDF." },
+      { q: "Does MotoDash keep a history of all uploaded datasets?", a: "Yes. All uploaded datasets are stored and visible in your Datasets section unless manually deleted. You can return to any previous dataset's dashboard at any time." },
+      { q: "Can I compare data across two different datasets?", a: "Side-by-side comparison within a single view is not currently supported. Each dataset has its own dashboard, but you can open multiple browser tabs to compare them." },
+      { q: "How do I know when a new dataset has been analyzed?", a: "The dataset status in your Datasets list will update from 'Processing' to 'Analyzed'. Refresh the page if the status doesn't update automatically." }
     ]
   }
 ];

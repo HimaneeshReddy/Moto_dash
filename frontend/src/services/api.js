@@ -130,6 +130,7 @@ export const uploadCsv = ({ datasetName, file }) => {
  * POST /api/data/:id/analyze
  */
 export const analyzeDataset = (datasetId) => {
+    // No timeout — let Ollama run to completion however long it needs
     return request(`/data/${datasetId}/analyze`, {
         method: "POST",
     });
@@ -144,6 +145,10 @@ export const listDatasets = () => request("/data/datasets");
 export const listAnalyzedDatasets = (search = "") =>
     request(`/data/analyzed${search ? `?search=${encodeURIComponent(search)}` : ""}`);
 
+/** List analyzed datasets for a specific showroom (owner org console). */
+export const listShowroomDashboards = (showroomId) =>
+    request(`/data/analyzed?showroom_id=${encodeURIComponent(showroomId)}`);
+
 /** Fetch the stored LLM analysis for a specific dataset. GET /api/data/:id/analysis */
 export const getDatasetAnalysis = (datasetId) => request(`/data/${datasetId}/analysis`);
 
@@ -152,6 +157,37 @@ export const saveDatasetThumbnail = (datasetId, thumbnail) =>
     request(`/data/${datasetId}/thumbnail`, {
         method: 'PATCH',
         body: JSON.stringify({ thumbnail }),
+    });
+
+/** Save dashboard layout (viewMode + order arrays). PATCH /api/data/:id/layout */
+export const saveDashboardLayout = (datasetId, layout) =>
+    request(`/data/${datasetId}/layout`, {
+        method: 'PATCH',
+        body: JSON.stringify(layout),
+    });
+
+/** Load saved dashboard layout. GET /api/data/:id/layout */
+export const getDashboardLayout = (datasetId) => request(`/data/${datasetId}/layout`);
+
+/** Use LLM to edit a single chart or insight. POST /api/data/:id/edit-item */
+export const editDashboardItem = (datasetId, { type, index, instruction }) =>
+    request(`/data/${datasetId}/edit-item`, {
+        method: 'POST',
+        body: JSON.stringify({ type, index, instruction }),
+    });
+
+/** Test an external DB connection + get table list. POST /api/data/db-connect/test */
+export const testDbConnection = (params) =>
+    request('/data/db-connect/test', {
+        method: 'POST',
+        body: JSON.stringify(params),
+    });
+
+/** Import a table from an external DB as a new dataset. POST /api/data/db-connect/import */
+export const importDbTable = (params) =>
+    request('/data/db-connect/import', {
+        method: 'POST',
+        body: JSON.stringify(params),
     });
 
 /** Get paginated (+ searchable) rows from a dataset. GET /api/data/:id/rows */
@@ -203,6 +239,12 @@ export const approveRequest = (id) =>
     request(`/admin/requests/${id}/approve`, { method: "POST" });
 export const rejectRequest = (id) =>
     request(`/admin/requests/${id}/reject`, { method: "POST" });
+
+// ── Admin: Owner Overview ─────────────────────────────────────
+export const getOrgOverview = () => request("/admin/overview");
+
+// ── Auth: Current User Profile (with org + showroom names) ───
+export const getProfile = () => request("/auth/me");
 
 // ── Insight SQL Execution ─────────────────────────────────────
 /** Run a read-only AI-generated SQL query against a specific dataset. */

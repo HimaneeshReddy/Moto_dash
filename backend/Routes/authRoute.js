@@ -3,8 +3,10 @@ import {
     createOrganization,
     registerUser,
     loginUser,
+    getMe,
     submitSupportTicket
 } from "../Controllers/authController.js";
+import { verifyToken } from "../Middleware/authMiddleware.js";
 
 const router = express.Router();
 
@@ -16,6 +18,9 @@ router.post("/register", registerUser);
 
 // Login
 router.post("/login", loginUser);
+
+// Get current user profile (with org + showroom names)
+router.get("/me", verifyToken, getMe);
 
 // Submit Support Ticket (Public/Protected depending on use-case, kept public here for edge cases where login fails)
 router.post("/support", submitSupportTicket);

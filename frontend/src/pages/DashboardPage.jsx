@@ -11,6 +11,7 @@ import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import ManageAccountsOutlinedIcon from '@mui/icons-material/ManageAccountsOutlined';
 import { useState } from "react";
 import Home from '../Components/Home.jsx';
+import OwnerHome from '../Components/OwnerHome.jsx';
 import Profile from "../Components/Profile.jsx";
 import CreateOptions from "../Components/CreateOptions.jsx";
 import HelpCenter from "../Components/HelpCenter.jsx";
@@ -149,11 +150,11 @@ const DashboardPage = () => {
             </OptionCard>
 
             <OptionCard
-              active={activePage === "dashboards" || activePage === "dashboard"}
-              onClick={() => setActivePage("dashboards")}
+              active={activePage === "create"}
+              onClick={() => setActivePage("create")}
             >
-              <IconCard><DashboardIcon /></IconCard>
-              Dashboards
+              <IconCard><AddCircleOutlineIcon /></IconCard>
+              Create
             </OptionCard>
 
             {user?.role !== "analyst" && (
@@ -166,17 +167,12 @@ const DashboardPage = () => {
               </OptionCard>
             )}
 
-            <OptionCard>
-              <IconCard><FolderOpenOutlinedIcon /></IconCard>
-              Projects
-            </OptionCard>
-
             <OptionCard
-              active={activePage === "create"}
-              onClick={() => setActivePage("create")}
+              active={activePage === "dashboards" || activePage === "dashboard"}
+              onClick={() => setActivePage("dashboards")}
             >
-              <IconCard><AddCircleOutlineIcon /></IconCard>
-              Create
+              <IconCard><DashboardIcon /></IconCard>
+              Dashboards
             </OptionCard>
 
             <OptionCard
@@ -206,12 +202,16 @@ const DashboardPage = () => {
       </LeftSideBar>
 
       <Contents>
-        {activePage === "home" && <Home setActivePage={setActivePage} onOpenDashboard={handleOpenSavedDashboard} />}
+        {activePage === "home" && (
+          user?.role === "owner"
+            ? <OwnerHome onOpenDashboard={handleOpenSavedDashboard} setActivePage={setActivePage} />
+            : <Home setActivePage={setActivePage} onOpenDashboard={handleOpenSavedDashboard} />
+        )}
         {activePage === "profile" && <Profile />}
         {activePage === "create" && <CreateOptions onAnalysisSuccess={handleAnalysisSuccess} />}
         {activePage === "help" && <HelpCenter />}
         {activePage === "datasets" && <DatasetManager />}
-        {activePage === "orgconsole" && <OrgConsole />}
+        {activePage === "orgconsole" && <OrgConsole onOpenDashboard={handleOpenSavedDashboard} setActivePage={setActivePage} />}
         {activePage === "dashboards" && (
           <DashboardList
             onOpenDashboard={handleOpenSavedDashboard}

@@ -19,6 +19,7 @@
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^8.22.1",
     "multer": "^2.0.2",
+    "mysql2": "^3.19.1",
     "nodemailer": "^8.0.1",
     "pg": "^8.18.0",
     "pg-format": "^1.0.4"

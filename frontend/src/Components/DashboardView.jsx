@@ -12,6 +12,10 @@ import TableChartIcon from '@mui/icons-material/TableChart';
 import DashboardCustomizeIcon from '@mui/icons-material/DashboardCustomize';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import DescriptionIcon from '@mui/icons-material/Description';
+import LayersIcon from '@mui/icons-material/Layers';
+import ViewQuiltIcon from '@mui/icons-material/ViewQuilt';
+import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
+import EditIcon from '@mui/icons-material/Edit';
 
 // Chart Dependencies
 import {
@@ -23,7 +27,7 @@ import {
 } from 'recharts';
 
 // API
-import { getDatasetRows, saveDatasetThumbnail, runInsightQuery, chatWithDataset } from '../services/api.js';
+import { getDatasetRows, saveDatasetThumbnail, runInsightQuery, chatWithDataset, saveDashboardLayout, getDashboardLayout, editDashboardItem } from '../services/api.js';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 
@@ -36,6 +40,21 @@ const Container = styled.div`
   margin: 0 auto;
   background-color: #f4f6f8;
   min-height: 100vh;
+
+  /* Custom grid handle styles since we removed example-styles.css */
+  .react-resizable-handle {
+    background-image: none !important;
+  }
+  .react-resizable-handle::after {
+    content: "";
+    position: absolute;
+    right: 5px;
+    bottom: 5px;
+    width: 8px;
+    height: 8px;
+    border-right: 2px solid rgba(0,0,0,0.1);
+    border-bottom: 2px solid rgba(0,0,0,0.1);
+  }
 `;
 
 const Header = styled.div`
@@ -280,11 +299,11 @@ const ChatResultTable = styled.div`
   td { padding: 6px 10px; color: #334155; border-top: 1px solid #f1f5f9; }
 `;
 
-const DatasetChatbot = ({ datasetId }) => {
-  const [open, setOpen] = React.useState(false);
+const DatasetChatbot = ({ datasetId, inline = false }) => {
+  const [open, setOpen] = React.useState(inline);
   const [messages, setMessages] = React.useState([{
     isUser: false,
-    text: '👋 Hi! Ask me anything about this dataset. E.g. "How many Meteor 350 bikes were sold in February?"'
+    text: '👋 Hi! Ask me anything about this dataset.'
   }]);
   const [input, setInput] = React.useState('');
   const [loading, setLoading] = React.useState(false);
@@ -309,6 +328,34 @@ const DatasetChatbot = ({ datasetId }) => {
       setLoading(false);
     }
   };
+
+  if (inline) {
+    return (
+      <CardItem style={{ height: '100%', display: 'flex', flexDirection: 'column', padding: 0, overflow: 'hidden', border: '1px solid #e2e8f0', borderRadius: '16px', background: 'white' }}>
+        <ChatHeader style={{ borderRadius: '16px 16px 0 0' }}>
+          <span>🤖 Data Assistant</span>
+        </ChatHeader>
+        <ChatBody ref={bodyRef} style={{ flex: 1 }}>
+          {messages.map((msg, i) => (
+            <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: msg.isUser ? 'flex-end' : 'flex-start' }}>
+              <Bubble isUser={msg.isUser}>{msg.text}</Bubble>
+            </div>
+          ))}
+          {loading && <Bubble isUser={false}><span style={{ opacity: 0.6 }}>Thinking…</span></Bubble>}
+        </ChatBody>
+        <ChatInputRow>
+          <ChatInput
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && send()}
+            placeholder="Ask a question..."
+            disabled={loading}
+          />
+          <ChatSendBtn onClick={send} disabled={loading || !input.trim()}>Send</ChatSendBtn>
+        </ChatInputRow>
+      </CardItem>
+    );
+  }
 
   return (
     <>
@@ -344,6 +391,31 @@ const DatasetChatbot = ({ datasetId }) => {
     </>
   );
 };
+
+const CardItem = styled.div`
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+`;
+
+const ChartWrapper = styled.div`
+  width: 100%;
+  height: 420px;
+  min-height: 420px;
+  position: relative;
+
+  /* Force recharts to respect container height */
+  .recharts-responsive-container {
+    width: 100% !important;
+    height: 100% !important;
+  }
+`;
 
 const Grid = styled.div`
   display: grid;
@@ -405,6 +477,59 @@ const ChartPlaceholder = styled.div`
   gap: 12px;
 `;
 
+const DashboardContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 50px;
+  width: 100%;
+`;
+
+const Section = styled.div`
+  width: 100%;
+`;
+
+const FlexRow = styled.div`
+  display: flex;
+  gap: 20px;
+  width: 100%;
+  @media (max-width: 1024px) {
+    flex-direction: column;
+  }
+`;
+
+const FlexCol = styled.div`
+  flex: ${props => props.flex || 1};
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+`;
+
+const ViewToggle = styled.div`
+  display: flex;
+  background: #f1f5f9;
+  padding: 4px;
+  border-radius: 10px;
+  gap: 4px;
+  margin-right: 15px;
+`;
+
+const ToggleButton = styled.button`
+  padding: 6px 12px;
+  border-radius: 7px;
+  border: none;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: ${props => props.active ? '#fff' : 'transparent'};
+  color: ${props => props.active ? '#3457B2' : '#64748b'};
+  box-shadow: ${props => props.active ? '0 2px 4px rgba(0,0,0,0.05)' : 'none'};
+  
+  &:hover {
+    color: ${props => props.active ? '#3457B2' : '#1e293b'};
+  }
+`;
+
 const getIconForType = (type) => {
   switch (type.toLowerCase()) {
     case 'bar': return <BarChartIcon style={{ color: '#3457B2' }} />;
@@ -433,7 +558,11 @@ const looksLikeDate = (val) => {
 
 // Helper to aggregate raw rows so charts aren't overwhelmed with 100+ ungrouped data points
 const aggregateData = (rawData, xCol, yCols, chartType) => {
-  if (!xCol || !rawData || rawData.length === 0) return rawData.slice(0, 15);
+  console.log(`[aggregateData] Starting with xCol: "${xCol}", yCols:`, yCols);
+  if (!xCol || !rawData || rawData.length === 0) {
+    console.warn("[aggregateData] Missing rawData or xCol");
+    return rawData ? rawData.slice(0, 15) : [];
+  }
 
   const grouped = {};
 
@@ -449,8 +578,13 @@ const aggregateData = (rawData, xCol, yCols, chartType) => {
 
     grouped[xVal]._count += 1;
     yCols.forEach(y => {
-      if (y && typeof row[y] === 'number') {
-        grouped[xVal][y] += row[y];
+      // Avoid overwriting the X-axis key or the internal _count key
+      if (y && y !== xCol && y !== '_count') {
+        const val = row[y];
+        const num = typeof val === 'number' ? val : parseFloat(String(val).replace(/[^0-9.-]/g, ''));
+        if (!isNaN(num)) {
+          grouped[xVal][y] = (grouped[xVal][y] || 0) + num;
+        }
       }
     });
   });
@@ -465,10 +599,12 @@ const aggregateData = (rawData, xCol, yCols, chartType) => {
   if (isDateAxis && isTimeSeries) {
     // Sort chronologically and keep all date points (up to 20)
     agg.sort((a, b) => new Date(a[xCol]) - new Date(b[xCol]));
+    console.log(`[aggregateData] Finished (Time-series). Points: ${agg.length}`);
     return agg.slice(0, 20);
   } else {
     // Sort descending by metric for categorical charts (bar, pie)
     agg.sort((a, b) => (b[sortKey] || 0) - (a[sortKey] || 0));
+    console.log(`[aggregateData] Finished (Categorical). Points: ${agg.length}`);
     return agg.slice(0, 15);
   }
 };
@@ -478,22 +614,37 @@ const DynamicChart = ({ config, data }) => {
 
   const { chart_type, x_axis_column, y_axis_column } = config;
 
-  // Clean up LLM outputs: sometimes x_axis_column is an array instead of a string
+  // Clean up LLM outputs and handle case-sensitivity fuzzy matching
+  const findKey = (target) => {
+    if (!target || !data || !data[0]) return target;
+    const lowerTarget = String(target).toLowerCase();
+    const actualKey = Object.keys(data[0]).find(k => k.toLowerCase() === lowerTarget);
+    return actualKey || target;
+  };
+
   const xColRaw = Array.isArray(x_axis_column) ? x_axis_column[0] : x_axis_column;
-  const xCol = data[0] && !(xColRaw in data[0]) ? Object.keys(data[0]).find(k => k !== '_id') || xColRaw : xColRaw;
+  const xCol = findKey(xColRaw);
 
-  // Convert string array of y-axis columns to make sure they match Recharts expectations
   const yKeysRaw = Array.isArray(y_axis_column) ? y_axis_column : [y_axis_column];
+  const yKeys = yKeysRaw.map(findKey);
 
-  // CRITICAL FIX: Ensure the selected Y-columns are actually Numbers in our data.
-  // If the LLM picked a String column (e.g. employee_name), we can't sum it. We must fallback to _count.
+  // CRITICAL: Filter for columns that actually exist and are numeric
   const sample = data[0] || {};
-  const validYKeys = yKeysRaw.filter(y => y && typeof sample[y] === 'number');
-
+  const validYKeys = yKeys.filter(y => y && (typeof sample[y] === 'number' || (typeof sample[y] === 'string' && !isNaN(parseFloat(sample[y])))));
   const activeYKeys = validYKeys.length > 0 ? validYKeys : ['_count'];
 
-  // Aggregate data so we don't plot hundreds of individual raw rows
+  // Aggregate data
+  console.log(`[DynamicChart] Processing "${config.title}" | xRaw: "${x_axis_column}" -> xCol: "${xCol}" | yKeys:`, activeYKeys);
   const processedData = aggregateData(data, xCol, activeYKeys, chart_type?.toLowerCase());
+  console.log(`[DynamicChart] Result points: ${processedData?.length}`, processedData?.[0]);
+
+  if (!processedData || processedData.length === 0) {
+    return (
+      <div style={{ height: '350px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', fontSize: '14px', background: '#f8fafc', borderRadius: '8px', padding: '20px', textAlign: 'center' }}>
+        No valid points found for "{xCol}". <br/>This column may contain empty values or the metric "{activeYKeys[0]}" is not numeric.
+      </div>
+    );
+  }
 
   switch (chart_type.toLowerCase()) {
     case 'line':
@@ -755,7 +906,7 @@ const DynamicChart = ({ config, data }) => {
           <BarChart data={processedData} margin={{ top: 10, right: 30, left: 20, bottom: 40 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
             <XAxis
-              dataKey={x_axis_column}
+              dataKey={xCol}
               tick={{ fill: '#94a3b8', fontSize: 11 }}
               tickLine={false}
               axisLine={{ stroke: '#e2e8f0' }}
@@ -789,8 +940,32 @@ export default function DashboardView({ analysisData, datasetName, datasetId }) 
   const [chartData, setChartData] = useState([]);
   const [screenCapture, setScreenCapture] = useState('');
   const [showDataset, setShowDataset] = useState(false);
+  const [viewMode, setViewMode] = useState('balanced'); // 'balanced', 'sandwich', or 'focus'
+  const [chartOrder, setChartOrder] = useState([0, 1, 2]);
+  const [insightOrder, setInsightOrder] = useState([0, 1, 2, 3, 4]);
+  const [dragOver, setDragOver] = useState({ type: null, index: null });
+  const dragItem = useRef(null);
+  const [localAnalysis, setLocalAnalysis] = useState(analysisData);
+  useEffect(() => { setLocalAnalysis(analysisData); }, [analysisData]);
+  const [editState, setEditState] = useState({ open: false, type: null, rawIndex: null, label: '' });
+  const [editInstruction, setEditInstruction] = useState('');
+  const [editLoading, setEditLoading] = useState(false);
+
+  // Persist layout to localStorage whenever it changes
+  useEffect(() => { if (datasetId) localStorage.setItem(`layout_view_${datasetId}`, viewMode); }, [viewMode, datasetId]);
+  useEffect(() => { if (datasetId) localStorage.setItem(`layout_charts_${datasetId}`, JSON.stringify(chartOrder)); }, [chartOrder, datasetId]);
+  useEffect(() => { if (datasetId) localStorage.setItem(`layout_insights_${datasetId}`, JSON.stringify(insightOrder)); }, [insightOrder, datasetId]);
+
+  // Debounce-save the full layout to the backend 800ms after any change settles
+  useEffect(() => {
+    if (!datasetId) return;
+    const t = setTimeout(() => {
+      saveDashboardLayout(datasetId, { viewMode, chartOrder, insightOrder }).catch(() => {});
+    }, 800);
+    return () => clearTimeout(t);
+  }, [viewMode, chartOrder, insightOrder, datasetId]);
   const dashboardRef = useRef(null);
-  const capturedRef = useRef(false); // avoid re-capturing on re-renders
+  const capturedRef = useRef(false);
 
   useEffect(() => {
     if (!datasetId) return;
@@ -909,23 +1084,125 @@ export default function DashboardView({ analysisData, datasetName, datasetId }) 
     URL.revokeObjectURL(url);
   };
 
+  // Load saved layout for this dataset from the backend, or reset to defaults if none saved
+  useEffect(() => {
+    if (!datasetId) return;
+    getDashboardLayout(datasetId)
+      .then(({ layout }) => {
+        if (layout) {
+          setViewMode(layout.viewMode || 'balanced');
+          setChartOrder(layout.chartOrder || [0, 1, 2]);
+          setInsightOrder(layout.insightOrder || [0, 1, 2, 3, 4]);
+        } else {
+          setViewMode('balanced');
+          setChartOrder([0, 1, 2]);
+          setInsightOrder([0, 1, 2, 3, 4]);
+        }
+        setDragOver({ type: null, index: null });
+      })
+      .catch(() => {
+        setViewMode('balanced');
+        setChartOrder([0, 1, 2]);
+        setInsightOrder([0, 1, 2, 3, 4]);
+      });
+  }, [datasetId]);
+
   if (!analysisData) return null;
 
-  const { charts, filters, insights } = analysisData;
+  const { charts: rawCharts, filters, insights: rawInsights } = localAnalysis || analysisData;
+  // Apply drag-reorder state so all layout branches automatically use the reordered arrays
+  const charts = chartOrder.map(i => rawCharts[i]).filter(Boolean);
+  const insights = insightOrder.map(i => rawInsights[i]).filter(Boolean);
 
-  // We expect exactly 3 charts by prompt design. 1 primary, 2 secondary.
-  const primaryChart = charts[0];
-  const secondaryCharts = charts.slice(1, 3);
+  // Returns spread-able drag event props for a chart or insight card
+  const dragHandlers = (type, index) => ({
+    draggable: true,
+    onDragStart: () => { dragItem.current = { type, index }; },
+    onDragEnd: () => { setDragOver({ type: null, index: null }); dragItem.current = null; },
+    onDragOver: (e) => { e.preventDefault(); setDragOver({ type, index }); },
+    onDrop: (e) => {
+      e.preventDefault();
+      if (!dragItem.current || dragItem.current.type !== type) return;
+      const from = dragItem.current.index;
+      if (from === index) { setDragOver({ type: null, index: null }); dragItem.current = null; return; }
+      if (type === 'chart') {
+        const next = [...chartOrder]; [next[from], next[index]] = [next[index], next[from]]; setChartOrder(next);
+      } else {
+        const next = [...insightOrder]; [next[from], next[index]] = [next[index], next[from]]; setInsightOrder(next);
+      }
+      setDragOver({ type: null, index: null }); dragItem.current = null;
+    },
+  });
+  // Returns a style object to highlight a card while being dragged over
+  const dragOverStyle = (type, index) =>
+    dragOver.type === type && dragOver.index === index
+      ? { outline: '2px dashed #3457B2', outlineOffset: '-2px' }
+      : {};
+
+  const openEdit = (type, displayIndex) => {
+    const rawIndex = type === 'chart' ? chartOrder[displayIndex] : insightOrder[displayIndex];
+    const item = type === 'chart' ? rawCharts[rawIndex] : rawInsights[rawIndex];
+    const label = item
+      ? (type === 'chart' ? item.title : (typeof item === 'string' ? item : item.description))
+      : '';
+    setEditState({ open: true, type, rawIndex, label: label.slice(0, 65) });
+    setEditInstruction('');
+  };
+
+  const handleEditSubmit = async () => {
+    if (!editInstruction.trim() || editLoading) return;
+    setEditLoading(true);
+    try {
+      const result = await editDashboardItem(datasetId, {
+        type: editState.type,
+        index: editState.rawIndex,
+        instruction: editInstruction.trim(),
+      });
+      if (result.analysis) setLocalAnalysis(result.analysis);
+      setEditState({ open: false, type: null, rawIndex: null, label: '' });
+      setEditInstruction('');
+    } catch (err) {
+      console.error('AI edit failed:', err);
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
+  const editBtn = (type, displayIndex) => (
+    <button
+      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px 3px', color: '#b0bec5', display: 'flex', alignItems: 'center', borderRadius: '4px', transition: 'color 0.15s' }}
+      title={`Edit this ${type} with AI`}
+      onClick={(e) => { e.stopPropagation(); openEdit(type, displayIndex); }}
+      onMouseEnter={(e) => { e.currentTarget.style.color = '#3457B2'; }}
+      onMouseLeave={(e) => { e.currentTarget.style.color = '#b0bec5'; }}
+    >
+      <EditIcon style={{ fontSize: '14px' }} />
+    </button>
+  );
 
   return (
     <>
-      <Container ref={dashboardRef}>
-        <Header>
+      <Container ref={dashboardRef} style={{ paddingBottom: '100px' }}>
+        <Header style={{ marginBottom: '40px' }}>
           <Title>
             <AutoAwesomeIcon style={{ color: '#3457B2', fontSize: '32px' }} />
             {datasetName || "AI Generated Dashboard"}
           </Title>
           <ActionsContainer>
+            {!showDataset && (
+              <ViewToggle>
+                <ToggleButton active={viewMode === 'balanced'} onClick={() => setViewMode('balanced')}>
+                  <DashboardCustomizeIcon fontSize="inherit" style={{ marginRight: '6px' }} /> Balanced
+                </ToggleButton>
+                <ToggleButton active={viewMode === 'sandwich'} onClick={() => setViewMode('sandwich')}>
+                  <LayersIcon fontSize="inherit" style={{ marginRight: '6px' }} /> Sandwich
+                </ToggleButton>
+                <ToggleButton active={viewMode === 'focus'} onClick={() => setViewMode('focus')}>
+                  <ViewQuiltIcon fontSize="inherit" style={{ marginRight: '6px' }} /> Focus
+                </ToggleButton>
+              </ViewToggle>
+            )}
+
             <ActionButton onClick={() => setShowDataset(!showDataset)}>
               {showDataset ? (
                 <><DashboardCustomizeIcon fontSize="small" style={{ color: '#3457B2' }} /> View Dashboard</>
@@ -952,71 +1229,414 @@ export default function DashboardView({ analysisData, datasetName, datasetId }) 
 
         {showDataset ? (
           <div style={{ marginTop: '20px', background: '#fff', borderRadius: '12px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
-            {/* The DatasetManager is designed to be full-page, but here we embed it */}
             <DatasetManager fixedDatasetId={datasetId} hideHeader={true} />
           </div>
         ) : (
-          <>
-            <FilterSection>
-              <FilterListIcon style={{ color: '#64748b', marginRight: '5px' }} />
-              <span style={{ color: '#64748b', fontSize: '14px', marginRight: '10px' }}>Detected Dimensions:</span>
-              {filters?.map((filter, i) => (
-                <Pill key={i}>{filter}</Pill>
-              ))}
-            </FilterSection>
+          <DashboardContainer>
+            {viewMode === 'balanced' ? (
+              <>
+                {/* Section 1: Full-width focus chart */}
+                {charts[0] && (
+                  <Section>
+                    <CardItem {...dragHandlers('chart', 0)} style={{ minHeight: '400px', ...dragOverStyle('chart', 0) }}>
+                      <ChartHeader style={{ borderBottom: '1px solid #f1f5f9', paddingBottom: '12px', marginBottom: '15px' }}>
+                        <div>
+                          <h3 style={{ margin: 0, color: '#1e293b', fontSize: '18px' }}>{charts[0].title}</h3>
+                          <ChartDesc>{charts[0].description}</ChartDesc>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          {editBtn('chart', 0)}
+                          <DragIndicatorIcon style={{ color: '#cbd5e1', cursor: 'grab', fontSize: '20px' }} />
+                          {getIconForType(charts[0].chart_type)}
+                        </div>
+                      </ChartHeader>
+                      <ChartWrapper>
+                        <DynamicChart config={charts[0]} data={chartData} />
+                      </ChartWrapper>
+                    </CardItem>
+                  </Section>
+                )}
 
-            {insights?.length > 0 && (
-              <InsightsSection>
-                <InsightsHeader>
-                  <AutoAwesomeIcon fontSize="small" style={{ color: '#3457B2' }} /> Key Insights Discovered
-                </InsightsHeader>
-                <InsightsGrid>
-                  {insights.map((insight, i) => (
-                    <InsightCard key={i} insight={insight} datasetId={datasetId} />
-                  ))}
-                </InsightsGrid>
-              </InsightsSection>
+                {/* Section 2: 1.5 Chart / 0.5 Insights */}
+                {(charts[1] || insights.length > 0) && (
+                  <Section>
+                    <FlexRow>
+                      <FlexCol flex={1.5}>
+                        {charts[1] && (
+                          <CardItem {...dragHandlers('chart', 1)} style={{ minHeight: '400px', ...dragOverStyle('chart', 1) }}>
+                            <ChartHeader style={{ borderBottom: '1px solid #f1f5f9', paddingBottom: '12px', marginBottom: '15px' }}>
+                              <div>
+                                <h3 style={{ margin: 0, color: '#1e293b', fontSize: '16px' }}>{charts[1].title}</h3>
+                                <ChartDesc>{charts[1].description}</ChartDesc>
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                {editBtn('chart', 1)}
+                                <DragIndicatorIcon style={{ color: '#cbd5e1', cursor: 'grab', fontSize: '20px' }} />
+                                {getIconForType(charts[1].chart_type)}
+                              </div>
+                            </ChartHeader>
+                            <ChartWrapper>
+                              <DynamicChart config={charts[1]} data={chartData} />
+                            </ChartWrapper>
+                          </CardItem>
+                        )}
+                      </FlexCol>
+                      <FlexCol flex={0.5}>
+                        {insights.slice(0, 2).map((insight, i) => (
+                          <CardItem key={i} {...dragHandlers('insight', i)} style={{ padding: '24px', minHeight: '190px', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center', ...dragOverStyle('insight', i) }}>
+                            <div style={{ marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                               {editBtn('insight', i)}
+                               <DragIndicatorIcon style={{ color: '#cbd5e1', cursor: 'grab', fontSize: '16px' }} />
+                               <AutoAwesomeIcon fontSize="small" style={{ color: '#3457B2', opacity: 0.6 }} />
+                               <span style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Insight</span>
+                            </div>
+                            <p style={{ margin: 0, color: '#475569', fontSize: '14px', lineHeight: 1.6, textAlign: 'center' }}>
+                              {typeof insight === 'string' ? insight : insight.description}
+                            </p>
+                          </CardItem>
+                        ))}
+                      </FlexCol>
+                    </FlexRow>
+                  </Section>
+                )}
+
+                {/* Section 3: Mirrored 0.5 Insights / 1.5 Chart */}
+                {(charts[2] || insights.length > 2) && (
+                  <Section>
+                    <FlexRow>
+                      <FlexCol flex={0.5}>
+                        {insights.slice(2, 5).map((insight, i) => (
+                          <CardItem key={i} {...dragHandlers('insight', 2 + i)} style={{ padding: '20px', minHeight: '130px', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center', ...dragOverStyle('insight', 2 + i) }}>
+                            <div style={{ marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                               {editBtn('insight', 2 + i)}
+                               <DragIndicatorIcon style={{ color: '#cbd5e1', cursor: 'grab', fontSize: '16px' }} />
+                               <AutoAwesomeIcon fontSize="small" style={{ color: '#3457B2', opacity: 0.6 }} />
+                               <span style={{ fontSize: '10px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Insight</span>
+                            </div>
+                            <p style={{ margin: 0, color: '#475569', fontSize: '13px', lineHeight: 1.5, textAlign: 'center' }}>
+                              {typeof insight === 'string' ? insight : insight.description}
+                            </p>
+                          </CardItem>
+                        ))}
+                      </FlexCol>
+                      <FlexCol flex={1.5}>
+                        {charts[2] && (
+                          <CardItem {...dragHandlers('chart', 2)} style={{ minHeight: '450px', ...dragOverStyle('chart', 2) }}>
+                            <ChartHeader style={{ borderBottom: '1px solid #f1f5f9', paddingBottom: '12px', marginBottom: '15px' }}>
+                              <div>
+                                <h3 style={{ margin: 0, color: '#1e293b', fontSize: '16px' }}>{charts[2].title}</h3>
+                                <ChartDesc>{charts[2].description}</ChartDesc>
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                {editBtn('chart', 2)}
+                                <DragIndicatorIcon style={{ color: '#cbd5e1', cursor: 'grab', fontSize: '20px' }} />
+                                {getIconForType(charts[2].chart_type)}
+                              </div>
+                            </ChartHeader>
+                            <ChartWrapper style={{ height: '450px', minHeight: '450px' }}>
+                              <DynamicChart config={charts[2]} data={chartData} />
+                            </ChartWrapper>
+                          </CardItem>
+                        )}
+                      </FlexCol>
+                    </FlexRow>
+                  </Section>
+                )}
+              </>
+            ) : viewMode === 'focus' ? (
+              <>
+                {/* FOCUS LAYOUT — Section 1: Left (2 stacked charts) / Right (insight + chatbot + insight) */}
+                <Section>
+                  <FlexRow style={{ alignItems: 'stretch' }}>
+                    {/* Left column: two stacked charts */}
+                    <FlexCol flex={1} style={{ gap: '20px' }}>
+                      {charts[0] && (
+                        <CardItem {...dragHandlers('chart', 0)} style={{ flex: 1, minHeight: '320px', ...dragOverStyle('chart', 0) }}>
+                          <ChartHeader style={{ borderBottom: '1px solid #f1f5f9', paddingBottom: '12px', marginBottom: '15px' }}>
+                            <div>
+                              <h3 style={{ margin: 0, color: '#1e293b', fontSize: '16px' }}>{charts[0].title}</h3>
+                              <ChartDesc>{charts[0].description}</ChartDesc>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              {editBtn('chart', 0)}
+                              <DragIndicatorIcon style={{ color: '#cbd5e1', cursor: 'grab', fontSize: '20px' }} />
+                              {getIconForType(charts[0].chart_type)}
+                            </div>
+                          </ChartHeader>
+                          <ChartWrapper>
+                            <DynamicChart config={charts[0]} data={chartData} />
+                          </ChartWrapper>
+                        </CardItem>
+                      )}
+                      {charts[1] && (
+                        <CardItem {...dragHandlers('chart', 1)} style={{ flex: 1, minHeight: '320px', ...dragOverStyle('chart', 1) }}>
+                          <ChartHeader style={{ borderBottom: '1px solid #f1f5f9', paddingBottom: '12px', marginBottom: '15px' }}>
+                            <div>
+                              <h3 style={{ margin: 0, color: '#1e293b', fontSize: '16px' }}>{charts[1].title}</h3>
+                              <ChartDesc>{charts[1].description}</ChartDesc>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              {editBtn('chart', 1)}
+                              <DragIndicatorIcon style={{ color: '#cbd5e1', cursor: 'grab', fontSize: '20px' }} />
+                              {getIconForType(charts[1].chart_type)}
+                            </div>
+                          </ChartHeader>
+                          <ChartWrapper>
+                            <DynamicChart config={charts[1]} data={chartData} />
+                          </ChartWrapper>
+                        </CardItem>
+                      )}
+                    </FlexCol>
+
+                    {/* Right column: insight top / chatbot middle / insight bottom */}
+                    <FlexCol flex={1} style={{ gap: '20px' }}>
+                      {insights[0] && (
+                        <CardItem {...dragHandlers('insight', 0)} style={{ padding: '14px 20px', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center', maxHeight: '110px', ...dragOverStyle('insight', 0) }}>
+                          <div style={{ marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            {editBtn('insight', 0)}
+                            <DragIndicatorIcon style={{ color: '#cbd5e1', cursor: 'grab', fontSize: '16px' }} />
+                            <AutoAwesomeIcon fontSize="small" style={{ color: '#3457B2', opacity: 0.6 }} />
+                            <span style={{ fontSize: '10px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Insight</span>
+                          </div>
+                          <p style={{ margin: 0, color: '#475569', fontSize: '12px', lineHeight: 1.5 }}>
+                            {typeof insights[0] === 'string' ? insights[0] : insights[0].description}
+                          </p>
+                        </CardItem>
+                      )}
+                      <div style={{ flex: 1, minHeight: '420px' }}>
+                        <DatasetChatbot datasetId={datasetId} inline={true} />
+                      </div>
+                      {insights[1] && (
+                        <CardItem {...dragHandlers('insight', 1)} style={{ padding: '14px 20px', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center', maxHeight: '110px', ...dragOverStyle('insight', 1) }}>
+                          <div style={{ marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            {editBtn('insight', 1)}
+                            <DragIndicatorIcon style={{ color: '#cbd5e1', cursor: 'grab', fontSize: '16px' }} />
+                            <AutoAwesomeIcon fontSize="small" style={{ color: '#3457B2', opacity: 0.6 }} />
+                            <span style={{ fontSize: '10px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Insight</span>
+                          </div>
+                          <p style={{ margin: 0, color: '#475569', fontSize: '12px', lineHeight: 1.5 }}>
+                            {typeof insights[1] === 'string' ? insights[1] : insights[1].description}
+                          </p>
+                        </CardItem>
+                      )}
+                    </FlexCol>
+                  </FlexRow>
+                </Section>
+
+                {/* FOCUS LAYOUT — Section 2: 70% chart / 30% three stacked insights */}
+                <Section>
+                  <FlexRow style={{ alignItems: 'stretch' }}>
+                    <FlexCol flex={0.7}>
+                      {charts[2] && (
+                        <CardItem {...dragHandlers('chart', 2)} style={{ height: '100%', minHeight: '420px', ...dragOverStyle('chart', 2) }}>
+                          <ChartHeader style={{ borderBottom: '1px solid #f1f5f9', paddingBottom: '12px', marginBottom: '15px' }}>
+                            <div>
+                              <h3 style={{ margin: 0, color: '#1e293b', fontSize: '18px' }}>{charts[2].title}</h3>
+                              <ChartDesc>{charts[2].description}</ChartDesc>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              {editBtn('chart', 2)}
+                              <DragIndicatorIcon style={{ color: '#cbd5e1', cursor: 'grab', fontSize: '20px' }} />
+                              {getIconForType(charts[2].chart_type)}
+                            </div>
+                          </ChartHeader>
+                          <ChartWrapper style={{ height: '420px', minHeight: '420px' }}>
+                            <DynamicChart config={charts[2]} data={chartData} />
+                          </ChartWrapper>
+                        </CardItem>
+                      )}
+                    </FlexCol>
+                    <FlexCol flex={0.3} style={{ gap: '20px' }}>
+                      {insights.slice(2, 5).map((insight, i) => (
+                        <CardItem key={i} {...dragHandlers('insight', 2 + i)} style={{ flex: 1, padding: '20px', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center', ...dragOverStyle('insight', 2 + i) }}>
+                          <div style={{ marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            {editBtn('insight', 2 + i)}
+                            <DragIndicatorIcon style={{ color: '#cbd5e1', cursor: 'grab', fontSize: '16px' }} />
+                            <AutoAwesomeIcon fontSize="small" style={{ color: '#3457B2', opacity: 0.6 }} />
+                            <span style={{ fontSize: '10px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Insight</span>
+                          </div>
+                          <p style={{ margin: 0, color: '#475569', fontSize: '13px', lineHeight: 1.5 }}>
+                            {typeof insight === 'string' ? insight : insight.description}
+                          </p>
+                        </CardItem>
+                      ))}
+                    </FlexCol>
+                  </FlexRow>
+                </Section>
+              </>
+            ) : (
+              <>
+                {/* Section 1: 2 Charts side by side (50/50) */}
+                {(charts[0] || charts[1]) && (
+                  <Section>
+                    <FlexRow>
+                      {charts[0] && (
+                        <FlexCol flex={1}>
+                          <CardItem {...dragHandlers('chart', 0)} style={{ height: '100%', minHeight: '400px', ...dragOverStyle('chart', 0) }}>
+                            <ChartHeader style={{ borderBottom: '1px solid #f1f5f9', paddingBottom: '12px', marginBottom: '15px' }}>
+                              <div>
+                                <h3 style={{ margin: 0, color: '#1e293b', fontSize: '16px' }}>{charts[0].title}</h3>
+                                <ChartDesc>{charts[0].description}</ChartDesc>
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                {editBtn('chart', 0)}
+                                <DragIndicatorIcon style={{ color: '#cbd5e1', cursor: 'grab', fontSize: '20px' }} />
+                                {getIconForType(charts[0].chart_type)}
+                              </div>
+                            </ChartHeader>
+                            <ChartWrapper>
+                              <DynamicChart config={charts[0]} data={chartData} />
+                            </ChartWrapper>
+                          </CardItem>
+                        </FlexCol>
+                      )}
+                      {charts[1] && (
+                        <FlexCol flex={1}>
+                          <CardItem {...dragHandlers('chart', 1)} style={{ height: '100%', minHeight: '400px', ...dragOverStyle('chart', 1) }}>
+                            <ChartHeader style={{ borderBottom: '1px solid #f1f5f9', paddingBottom: '12px', marginBottom: '15px' }}>
+                              <div>
+                                <h3 style={{ margin: 0, color: '#1e293b', fontSize: '16px' }}>{charts[1].title}</h3>
+                                <ChartDesc>{charts[1].description}</ChartDesc>
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                {editBtn('chart', 1)}
+                                <DragIndicatorIcon style={{ color: '#cbd5e1', cursor: 'grab', fontSize: '20px' }} />
+                                {getIconForType(charts[1].chart_type)}
+                              </div>
+                            </ChartHeader>
+                            <ChartWrapper>
+                              <DynamicChart config={charts[1]} data={chartData} />
+                            </ChartWrapper>
+                          </CardItem>
+                        </FlexCol>
+                      )}
+                    </FlexRow>
+                  </Section>
+                )}
+
+                {/* Section 2: Insights Sandwich (3 top, 2 bottom) */}
+                {insights.length > 0 && (
+                  <Section style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                    {/* Sub-row 1: 3 insights */}
+                    <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
+                      {insights.slice(0, 3).map((insight, i) => (
+                        <CardItem key={i} {...dragHandlers('insight', i)} style={{ flex: '1 1 300px', padding: '24px', minHeight: '180px', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center', ...dragOverStyle('insight', i) }}>
+                          <div style={{ marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                             {editBtn('insight', i)}
+                             <DragIndicatorIcon style={{ color: '#cbd5e1', cursor: 'grab', fontSize: '16px' }} />
+                             <AutoAwesomeIcon fontSize="small" style={{ color: '#3457B2', opacity: 0.6 }} />
+                             <span style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Insight</span>
+                          </div>
+                          <p style={{ margin: 0, color: '#475569', fontSize: '14px', lineHeight: 1.6, textAlign: 'center' }}>
+                            {typeof insight === 'string' ? insight : insight.description}
+                          </p>
+                        </CardItem>
+                      ))}
+                    </div>
+                    {/* Sub-row 2: 2 insights */}
+                    {insights.length > 3 && (
+                      <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
+                        {insights.slice(3, 5).map((insight, i) => (
+                          <CardItem key={i} {...dragHandlers('insight', 3 + i)} style={{ flex: '1 1 450px', padding: '24px', minHeight: '180px', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center', ...dragOverStyle('insight', 3 + i) }}>
+                            <div style={{ marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                               {editBtn('insight', 3 + i)}
+                               <DragIndicatorIcon style={{ color: '#cbd5e1', cursor: 'grab', fontSize: '16px' }} />
+                               <AutoAwesomeIcon fontSize="small" style={{ color: '#3457B2', opacity: 0.6 }} />
+                               <span style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Insight</span>
+                            </div>
+                            <p style={{ margin: 0, color: '#475569', fontSize: '14px', lineHeight: 1.6, textAlign: 'center' }}>
+                              {typeof insight === 'string' ? insight : insight.description}
+                            </p>
+                          </CardItem>
+                        ))}
+                      </div>
+                    )}
+                  </Section>
+                )}
+
+                {/* Section 3: Full-width Hero Chart */}
+                {charts[2] && (
+                  <Section>
+                    <CardItem {...dragHandlers('chart', 2)} style={{ minHeight: '450px', ...dragOverStyle('chart', 2) }}>
+                      <ChartHeader style={{ borderBottom: '1px solid #f1f5f9', paddingBottom: '12px', marginBottom: '15px' }}>
+                        <div>
+                          <h3 style={{ margin: 0, color: '#1e293b', fontSize: '18px' }}>{charts[2].title}</h3>
+                          <ChartDesc>{charts[2].description}</ChartDesc>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          {editBtn('chart', 2)}
+                          <DragIndicatorIcon style={{ color: '#cbd5e1', cursor: 'grab', fontSize: '20px' }} />
+                          {getIconForType(charts[2].chart_type)}
+                        </div>
+                      </ChartHeader>
+                      <ChartWrapper style={{ height: '450px', minHeight: '450px' }}>
+                        <DynamicChart config={charts[2]} data={chartData} />
+                      </ChartWrapper>
+                    </CardItem>
+                  </Section>
+                )}
+              </>
             )}
-
-            <Grid>
-              {primaryChart && (
-                <PrimaryCard>
-                  <ChartHeader>
-                    <div>
-                      <h3 style={{ margin: 0, color: '#1e293b', fontSize: '18px' }}>
-                        {primaryChart.title}
-                      </h3>
-                      <ChartDesc>{primaryChart.description}</ChartDesc>
-                    </div>
-                    {getIconForType(primaryChart.chart_type)}
-                  </ChartHeader>
-                  <ChartPlaceholder style={{ background: 'white', border: 'none', overflow: 'hidden' }}>
-                    <DynamicChart config={primaryChart} data={chartData} />
-                  </ChartPlaceholder>
-                </PrimaryCard>
-              )}
-
-              {secondaryCharts?.map((chart, i) => (
-                <SecondaryCard key={i}>
-                  <ChartHeader>
-                    <div>
-                      <h3 style={{ margin: 0, color: '#1e293b', fontSize: '16px' }}>
-                        {chart.title}
-                      </h3>
-                      <ChartDesc style={{ fontSize: '13px' }}>{chart.description}</ChartDesc>
-                    </div>
-                    {getIconForType(chart.chart_type)}
-                  </ChartHeader>
-                  <ChartPlaceholder style={{ background: 'white', border: 'none', overflow: 'hidden' }}>
-                    <DynamicChart config={chart} data={chartData} />
-                  </ChartPlaceholder>
-                </SecondaryCard>
-              ))}
-            </Grid>
-          </>
+            
+            {/* Any remaining insights (overflow) */}
+            {((viewMode === 'balanced' && insights.length > 5) || (viewMode === 'sandwich' && insights.length > 5) || (viewMode === 'focus' && insights.length > 5)) && (
+              <Section>
+                <FlexRow style={{ flexWrap: 'wrap' }}>
+                  {insights.slice(viewMode === 'balanced' ? 5 : 5).map((insight, i) => (
+                    <CardItem key={i} style={{ flex: '0 0 calc(33.33% - 14px)', padding: '20px', minHeight: '120px', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center' }}>
+                       <p style={{ margin: 0, color: '#475569', fontSize: '13px', textAlign: 'center' }}>
+                        {typeof insight === 'string' ? insight : insight.description}
+                       </p>
+                    </CardItem>
+                  ))}
+                </FlexRow>
+              </Section>
+            )}
+          </DashboardContainer>
         )}
       </Container>
       <DatasetChatbot datasetId={datasetId} />
+
+      {/* AI Edit Modal */}
+      {editState.open && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: '#fff', borderRadius: '16px', padding: '28px 32px', width: '500px', maxWidth: 'calc(100vw - 40px)', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
+              <AutoAwesomeIcon style={{ color: '#3457B2', fontSize: '22px' }} />
+              <h3 style={{ margin: 0, color: '#1e293b', fontSize: '18px', fontWeight: 700 }}>Edit with AI</h3>
+            </div>
+            <p style={{ margin: '0 0 16px', color: '#64748b', fontSize: '13px' }}>
+              Editing <strong>{editState.type}</strong>:{' '}
+              <em style={{ color: '#475569' }}>{editState.label}</em>
+            </p>
+            <textarea
+              autoFocus
+              value={editInstruction}
+              onChange={(e) => setEditInstruction(e.target.value)}
+              placeholder={editState.type === 'chart'
+                ? 'e.g. "Change to a pie chart" or "Show revenue by region instead"'
+                : 'e.g. "Show the average sale value" or "Change to reflect top 3 products"'}
+              style={{ width: '100%', minHeight: '80px', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '10px 12px', fontSize: '14px', resize: 'vertical', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', color: '#1e293b' }}
+              onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleEditSubmit(); }}
+            />
+            <div style={{ display: 'flex', gap: '10px', marginTop: '14px', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setEditState({ open: false, type: null, rawIndex: null, label: '' })}
+                style={{ padding: '8px 18px', border: '1px solid #e2e8f0', borderRadius: '8px', background: '#fff', cursor: 'pointer', color: '#64748b', fontSize: '14px', fontFamily: 'inherit' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleEditSubmit}
+                disabled={editLoading || !editInstruction.trim()}
+                style={{ padding: '8px 22px', border: 'none', borderRadius: '8px', background: (editLoading || !editInstruction.trim()) ? '#94a3b8' : '#3457B2', color: '#fff', cursor: editLoading ? 'wait' : 'pointer', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit' }}
+              >
+                {editLoading ? 'Updating…' : <><AutoAwesomeIcon style={{ fontSize: '15px' }} /> Update</>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

@@ -1,11 +1,18 @@
 import express from "express";
 import { uploadCsv } from "../Controllers/dataController.js";
 import { analyzeDataset } from "../Controllers/analyzeController.js";
-import { listDatasets, getDatasetRows, addDatasetRow, updateDatasetRow, deleteDatasetRow, getDatasetAnalysis, listAnalyzedDatasets, saveDatasetThumbnail, runInsightQuery, deleteDataset, chatWithDataset } from "../Controllers/crudController.js";
+import { listDatasets, getDatasetRows, addDatasetRow, updateDatasetRow, deleteDatasetRow, getDatasetAnalysis, listAnalyzedDatasets, saveDatasetThumbnail, runInsightQuery, deleteDataset, chatWithDataset, saveLayout, getLayout, editDashboardItem } from '../Controllers/crudController.js';
+import { testDbConnection, importDbTable } from '../Controllers/dbConnectController.js';
 import { upload } from "../Middleware/uploadMiddleware.js";
 import { verifyToken } from "../Middleware/authMiddleware.js";
 
 const router = express.Router();
+
+// POST /api/data/db-connect/test — test external DB connection + return tables
+router.post("/db-connect/test", verifyToken, testDbConnection);
+
+// POST /api/data/db-connect/import — import a table from external DB as a dataset
+router.post("/db-connect/import", verifyToken, importDbTable);
 
 // POST /api/data/upload-csv
 router.post("/upload-csv", verifyToken, upload.single("file"), uploadCsv);
@@ -45,5 +52,14 @@ router.delete("/:id", verifyToken, deleteDataset);
 
 // POST /api/data/:id/chat — natural-language → SQL → result chatbot
 router.post("/:id/chat", verifyToken, chatWithDataset);
+
+// PATCH /api/data/:id/layout — save dashboard layout
+router.patch("/:id/layout", verifyToken, saveLayout);
+
+// GET /api/data/:id/layout — retrieve saved dashboard layout
+router.get("/:id/layout", verifyToken, getLayout);
+
+// POST /api/data/:id/edit-item — use LLM to update a single chart or insight
+router.post("/:id/edit-item", verifyToken, editDashboardItem);
 
 export default router;

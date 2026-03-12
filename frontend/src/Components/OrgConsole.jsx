@@ -11,12 +11,15 @@ import SearchIcon from "@mui/icons-material/Search";
 import PersonAddIcon from "@mui/icons-material/PersonAdd";
 import CancelIcon from "@mui/icons-material/Cancel";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
+import DashboardIcon from "@mui/icons-material/Dashboard";
+import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 
 import {
     listShowrooms, createShowroom, updateShowroom, deleteShowroom,
     listMembers, removeMember, reassignMemberShowroom,
     listInvites, sendInvite, cancelInvite, getUser,
-    listRequests, approveRequest, rejectRequest
+    listRequests, approveRequest, rejectRequest,
+    listShowroomDashboards, getDatasetAnalysis
 } from "../services/api.js";
 
 const fadeIn = keyframes`from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); }`;
@@ -98,6 +101,24 @@ const Input = styled.input`
 const Select = styled.select`
   width: 100%; padding: 10px 14px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 14px; outline: none; box-sizing: border-box; background: white;
 `;
+
+/* ── Showroom Dashboards Modal ── */
+const DashItem = styled.div`
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 16px; border-bottom: 1px solid #f1f5f9;
+  &:last-child { border-bottom: none; }
+  &:hover { background: #fafbff; }
+`;
+const DashName = styled.div`font-size: 14px; font-weight: 600; color: #1e293b;`;
+const DashMeta = styled.div`font-size: 12px; color: #94a3b8; margin-top: 2px;`;
+const OpenBtn = styled.button`
+  display: flex; align-items: center; gap: 5px; padding: 7px 14px;
+  background: #3457B2; color: white; border: none; border-radius: 7px;
+  font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap;
+  &:hover { background: #2a458c; }
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
+`;
+
 const Msg = styled.div`
   padding: 10px 14px; border-radius: 8px; font-size: 13px; margin-bottom: 12px;
   ${p => p.error ? `background:#fef2f2; color:#ef4444; border:1px solid #fecaca;` : p.info ? `background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;font-family:monospace;word-break:break-all;` : `background:#ecfdf5; color:#10b981; border:1px solid #a7f3d0;`}
@@ -112,11 +133,40 @@ const Toast = styled.div`
 `;
 
 /* ──────────────────────────────────────────────── */
-export default function OrgConsole() {
+export default function OrgConsole({ onOpenDashboard, setActivePage }) {
     const user = getUser(); // Grab user details from local storage utility
     const [tab, setTab] = useState(user?.role === "owner" ? "showrooms" : "members");
     const [toast, setToast] = useState(null);
     const showToast = (msg, error = false) => { setToast({ msg, error }); setTimeout(() => setToast(null), 3500); };
+
+    /* ── Showroom Dashboards Modal ── */
+    const [srDashModal, setSrDashModal] = useState(null); // { id, name } of selected showroom
+    const [srDashboards, setSrDashboards] = useState([]);
+    const [srDashLoading, setSrDashLoading] = useState(false);
+    const [openingId, setOpeningId] = useState(null);
+
+    const openShowroomDashboards = async (sr) => {
+        setSrDashModal(sr);
+        setSrDashboards([]);
+        setSrDashLoading(true);
+        try {
+            const r = await listShowroomDashboards(sr.id);
+            setSrDashboards(r.dashboards || []);
+        } catch (e) { showToast(e.message, true); }
+        finally { setSrDashLoading(false); }
+    };
+
+    const handleOpenDashboard = async (d) => {
+        if (!onOpenDashboard || !setActivePage) return;
+        setOpeningId(d.id);
+        try {
+            const r = await getDatasetAnalysis(d.id);
+            setSrDashModal(null);
+            onOpenDashboard(r.analysis, d.name, d.id);
+            setActivePage("dashboard");
+        } catch (e) { showToast(e.message, true); }
+        finally { setOpeningId(null); }
+    };
 
     /* ── Showrooms ── */
     const [showrooms, setShowrooms] = useState([]);
@@ -284,12 +334,17 @@ export default function OrgConsole() {
                                     <CardName>{sr.name}</CardName>
                                     <CardSub>{sr.location || "No location set"}</CardSub>
                                     <CardSub>{new Date(sr.created_at).toLocaleDateString()}</CardSub>
-                                    {user?.role === "owner" && (
-                                        <CardActions>
-                                            <Btn onClick={() => openEditSr(sr)}><EditIcon fontSize="small" /> Edit</Btn>
-                                            <Btn danger onClick={() => handleDeleteSr(sr.id)}><DeleteOutlineIcon fontSize="small" /> Delete</Btn>
-                                        </CardActions>
-                                    )}
+                                    <CardActions>
+                                        <Btn onClick={() => openShowroomDashboards(sr)} style={{ flex: 1, justifyContent: "center" }}>
+                                            <DashboardIcon fontSize="small" /> Dashboards
+                                        </Btn>
+                                        {user?.role === "owner" && (
+                                            <>
+                                                <Btn onClick={() => openEditSr(sr)}><EditIcon fontSize="small" /></Btn>
+                                                <Btn danger onClick={() => handleDeleteSr(sr.id)}><DeleteOutlineIcon fontSize="small" /></Btn>
+                                            </>
+                                        )}
+                                    </CardActions>
                                 </Card>
                             ))}
                         </CardGrid>
@@ -513,6 +568,48 @@ export default function OrgConsole() {
                                 </div>
                             </>
                         )}
+                    </ModalBox>
+                </Modal>
+            )}
+
+            {/* ──── SHOWROOM DASHBOARDS MODAL ──── */}
+            {srDashModal && (
+                <Modal onClick={() => setSrDashModal(null)}>
+                    <ModalBox onClick={e => e.stopPropagation()} style={{ width: 560, maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
+                            <ModalTitle style={{ margin: 0 }}>
+                                <DashboardIcon style={{ verticalAlign: "middle", marginRight: 8, color: "#3457B2" }} />
+                                {srDashModal.name}
+                            </ModalTitle>
+                            <Btn onClick={() => setSrDashModal(null)} style={{ padding: "6px 10px" }}><CloseIcon fontSize="small" /></Btn>
+                        </div>
+                        <div style={{ overflowY: "auto", flex: 1, border: "1px solid #f1f5f9", borderRadius: 10 }}>
+                            {srDashLoading ? (
+                                <p style={{ color: "#94a3b8", textAlign: "center", padding: 24 }}>Loading dashboards...</p>
+                            ) : srDashboards.length === 0 ? (
+                                <p style={{ color: "#94a3b8", textAlign: "center", padding: 24 }}>No analyzed dashboards found for this showroom.</p>
+                            ) : srDashboards.map(d => (
+                                <DashItem key={d.id}>
+                                    <div>
+                                        <DashName>{d.name}</DashName>
+                                        <DashMeta>
+                                            {d.row_count?.toLocaleString()} rows · {d.column_count} columns
+                                            &nbsp;·&nbsp;{new Date(d.updated_at || d.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                                        </DashMeta>
+                                    </div>
+                                    <OpenBtn
+                                        onClick={() => handleOpenDashboard(d)}
+                                        disabled={openingId === d.id || !onOpenDashboard}
+                                        title={!onOpenDashboard ? "Open from Home page" : ""}
+                                    >
+                                        {openingId === d.id ? "Opening..." : <><OpenInNewIcon fontSize="small" /> Open</>}
+                                    </OpenBtn>
+                                </DashItem>
+                            ))}
+                        </div>
+                        <p style={{ fontSize: 12, color: "#94a3b8", margin: "12px 0 0 0" }}>
+                            {srDashboards.length} dashboard{srDashboards.length !== 1 ? "s" : ""} found
+                        </p>
                     </ModalBox>
                 </Modal>
             )}

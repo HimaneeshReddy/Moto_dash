@@ -440,3 +440,50 @@ export const rejectRequest = async (req, res, next) => {
     }
 };
 
+// ─────────────────────────────────────────────────────────
+// OWNER OVERVIEW
+// ─────────────────────────────────────────────────────────
+
+// GET /api/admin/overview — org-level KPIs + per-showroom stats (owner only)
+export const getOrgOverview = async (req, res, next) => {
+    const { organizationId } = req.user;
+    try {
+        // Org-level aggregates
+        const orgRes = await pool.query(
+            `SELECT
+                o.name AS org_name,
+                (SELECT COUNT(*) FROM showrooms WHERE organization_id = $1) AS total_showrooms,
+                (SELECT COUNT(*) FROM users WHERE organization_id = $1 AND role != 'owner' AND status = 'active') AS total_members,
+                (SELECT COUNT(*) FROM datasets WHERE organization_id = $1) AS total_datasets,
+                (SELECT COALESCE(SUM(row_count), 0) FROM datasets WHERE organization_id = $1) AS total_rows
+             FROM organizations o WHERE o.id = $1`,
+            [organizationId]
+        );
+
+        // Per-showroom stats
+        const showroomsRes = await pool.query(
+            `SELECT
+                s.id,
+                s.name,
+                s.location,
+                s.created_at,
+                COUNT(DISTINCT u.id) FILTER (WHERE u.status = 'active' AND u.role != 'owner') AS member_count,
+                COUNT(DISTINCT d.id) AS dataset_count,
+                COALESCE(SUM(d.row_count), 0) AS total_rows,
+                MAX(d.created_at) AS last_upload
+             FROM showrooms s
+             LEFT JOIN users u ON u.showroom_id = s.id AND u.organization_id = s.organization_id
+             LEFT JOIN datasets d ON d.showroom_id = s.id
+             WHERE s.organization_id = $1
+             GROUP BY s.id, s.name, s.location, s.created_at
+             ORDER BY s.created_at ASC`,
+            [organizationId]
+        );
+
+        return res.json({
+            org: orgRes.rows[0],
+            showrooms: showroomsRes.rows,
+        });
+    } catch (err) { next(err); }
+};
+
