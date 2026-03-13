@@ -20,7 +20,7 @@ export const analyzeDataset = async (req, res, next) => {
 
         const { name, storage_table_name: storageTable, showroom_id: showroomId, metadata } = datasetQuery.rows[0];
 
-        // 2. Compact column summary (~50-100 tokens for all columns)
+        // 2. Compact column summary
         const columnSummary = (metadata.columns || []).map(col => {
             if (col.type === 'numeric') return `${col.name} (number, min=${col.min}, max=${col.max})`;
             if (col.type === 'date') return `${col.name} (date)`;
@@ -28,8 +28,8 @@ export const analyzeDataset = async (req, res, next) => {
             return `${col.name} (text, e.g. ${topVals})`;
         }).join('\n');
 
-        // 3. Prompt — charts + insights + financial classification
-                const systemPrompt = `You are a data analyst and financial classifier. Given a dataset, output EXACTLY 3 charts, EXACTLY 5 insights, and a financial classification as pure JSON.
+        // 3. Prompt
+        const systemPrompt = `You are a data analyst and financial classifier. Given a dataset, output EXACTLY 3 charts, EXACTLY 5 insights, and a financial classification as pure JSON.
 
 RULES:
 - Choose the most appropriate chart for the dataset and selected columns. Prefer the clearest chart, not the fanciest one.
@@ -44,22 +44,12 @@ RULES:
     - radialBar: show ranked progress or compact part-to-whole comparisons for a few categories
     - treemap: show hierarchical or many-category part-to-whole composition
 - chart_type must be exactly one of: bar, line, area, pie, scatter, radar, composed, radialBar, treemap
-- Match the chart to the data shape:
-    - use line or area when the x-axis is a date or ordered progression
-    - use bar for category comparisons by default
-    - use pie or radialBar only when composition is the main story and category count is low
-    - use scatter only when both axes are numeric
-    - use treemap when there are many categories and the goal is share-of-total
-- Avoid forcing exotic charts when bar, line, or area would communicate the data better
 - x_axis_column and y_axis_column must be exact column names from the dataset
 - filters must be 3 exact column names most useful for filtering
 - Each insight must state a specific, concrete fact (e.g. "Sales peak in Q4", "Average price is 450")
-- dataset_type: "revenue" (selling/income data), "expenditure" (purchasing/cost data), "salary" (employee pay data), "mixed" (multiple financial types), or "other" (no financial data)
-- dataset_type_label: short human-readable description e.g. "Vehicle Sales Report" or "Employee Payroll Data"
+- dataset_type: "revenue", "expenditure", "salary", "mixed", or "other"
+- dataset_type_label: short human-readable description e.g. "Vehicle Sales Report"
 - financial_columns: list ONLY column names that actually appear in the columns list AND hold monetary/numeric amounts
-  - revenue: columns for selling prices, amounts received, income, sales value
-  - expenditure: columns for purchase costs, buying prices, non-salary outgoings
-  - salary: columns for employee wages, salaries, payroll amounts
 - Use empty arrays [] when no matching financial columns exist
 - Output pure JSON only, no markdown, no extra text
 
@@ -80,55 +70,65 @@ RULES:
   }
 }`;
 
-        const OLLAMA_URL = process.env.OLLAMA_URL || "http://localhost:11434";
         const prompt = `Dataset: "${name}" | Rows: ${metadata.row_count ?? 'unknown'}\n\nColumns:\n${columnSummary}\n\nGenerate 3 charts and 5 insights.`;
 
-        let response;
-        try {
-            response = await fetch(`${OLLAMA_URL}/api/generate`, {
+        // 4. Call Gemini API
+        const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+        const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-1.5-flash";
+
+        if (!GEMINI_API_KEY) {
+            throw new Error("GEMINI_API_KEY is not set in environment variables.");
+        }
+
+        const geminiResponse = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`,
+            {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    model: process.env.OLLAMA_MODEL || "llama3",
-                    prompt,
-                    system: systemPrompt,
-                    stream: false,
-                    format: "json",
-                    keep_alive: "15m",
-                    options: {
-                        num_ctx: 4096,
-                        num_predict: 1200,
-                        temperature: 0.1
+                    contents: [{
+                        parts: [{
+                            text: systemPrompt + "\n\n" + prompt
+                        }]
+                    }],
+                    generationConfig: {
+                        temperature: 0.1,
+                        maxOutputTokens: 1200,
+                        responseMimeType: "application/json"
                     }
                 })
-            });
-        } catch (fetchErr) {
-            throw new Error(`Failed to connect to Ollama at ${OLLAMA_URL}: ${fetchErr.message}`);
+            }
+        );
+
+        if (!geminiResponse.ok) {
+            const errText = await geminiResponse.text();
+            throw new Error(`Gemini API returned status ${geminiResponse.status}: ${errText}`);
         }
 
-        if (!response.ok) {
-            const errText = await response.text();
-            throw new Error(`Ollama API returned status ${response.status}: ${errText}`);
+        const geminiData = await geminiResponse.json();
+        const rawText = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+        if (!rawText) {
+            throw new Error("Empty response from Gemini API.");
         }
 
-        const ollamaData = await response.json();
-
-        // 4. Parse JSON from Ollama response
+        // 5. Parse JSON from Gemini response
         let aiAnalysis;
         try {
-            aiAnalysis = JSON.parse(ollamaData.response);
+            const cleaned = rawText.replace(/```json|```/g, "").trim();
+            aiAnalysis = JSON.parse(cleaned);
         } catch (e) {
-            throw new Error("Failed to parse Ollama response as JSON: " + ollamaData.response);
+            throw new Error("Failed to parse Gemini response as JSON: " + rawText);
         }
 
-        // 5. Save analysis
+        // 6. Save analysis
         await pool.query(`
             UPDATE dataset_metadata
             SET metadata = metadata || jsonb_build_object('llm_analysis', $1::jsonb)
             WHERE dataset_id = $2
         `, [JSON.stringify(aiAnalysis), id]);
 
-        // 6. Compute financial sums and persist to showroom_financials
+        // 7. Compute financial sums and persist to showroom_financials
         try {
             const finCols = aiAnalysis.financial_columns || {};
             const validColSet = new Set((metadata.columns || []).map(c => c.name));
@@ -175,11 +175,6 @@ RULES:
         return res.status(200).json({ success: true, analysis: aiAnalysis });
 
     } catch (err) {
-        if (err.cause?.code === 'ECONNREFUSED' && err.message.includes('11434')) {
-            return res.status(503).json({
-                message: "Ollama is not running or accessible. Please ensure your Ollama container is running on port 11434."
-            });
-        }
         next(err);
     }
 };
