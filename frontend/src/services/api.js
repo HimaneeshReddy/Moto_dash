@@ -217,6 +217,8 @@ export const updateShowroom = (id, data) =>
     request(`/admin/showrooms/${id}`, { method: "PUT", body: JSON.stringify(data) });
 export const deleteShowroom = (id) =>
     request(`/admin/showrooms/${id}`, { method: "DELETE" });
+export const uploadShowroomCover = (id, formData) =>
+    request(`/admin/showrooms/${id}/cover`, { method: "PATCH", body: formData });
 
 // ── Admin: Members ────────────────────────────────────────────
 export const listMembers = (search = "") =>

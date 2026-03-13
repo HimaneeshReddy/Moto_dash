@@ -26,11 +26,10 @@ export const createOrganization = async (req, res, next) => {
 
         await client.query("BEGIN");
 
-        // 1. Create the organisation with an auto-generated domain (e.g. "Bike Motors" -> "bikemotors.app")
-        const domain = organizationName.toLowerCase().replace(/\s+/g, "") + ".app";
+        // 1. Create the organisation
         const orgResult = await client.query(
-            "INSERT INTO organizations (name, domain) VALUES ($1, $2) RETURNING *",
-            [organizationName, domain]
+            "INSERT INTO organizations (name) VALUES ($1) RETURNING *",
+            [organizationName]
         );
         const organization = orgResult.rows[0];
 

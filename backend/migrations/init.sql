@@ -45,6 +45,7 @@ CREATE TABLE showrooms (
         ON DELETE CASCADE,
     name TEXT NOT NULL,
     location TEXT,
+    cover_image TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -105,19 +106,43 @@ CREATE TABLE invites (
         REFERENCES showrooms(id)
         ON DELETE SET NULL,
     email TEXT NOT NULL,
+    contact_email TEXT,
     role TEXT CHECK (role IN ('manager','analyst')) NOT NULL,
     token_hash TEXT NOT NULL,
     expires_at TIMESTAMPTZ NOT NULL,
     status TEXT DEFAULT 'pending'
         CHECK (status IN ('pending', 'accepted', 'expired', 'cancelled')),
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-
-    -- Prevent duplicate active invites for same email in same org
-    CONSTRAINT uq_invite_email_org UNIQUE (email, organization_id)
+    created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE INDEX idx_invites_org
 ON invites(organization_id);
+
+
+
+-- ================================
+-- MANAGER REQUESTS (pending approval actions)
+-- ================================
+CREATE TABLE manager_requests (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id UUID NOT NULL
+        REFERENCES organizations(id)
+        ON DELETE CASCADE,
+    requester_id UUID
+        REFERENCES users(id)
+        ON DELETE SET NULL,
+    action_type TEXT NOT NULL,
+    target_user_id UUID
+        REFERENCES users(id)
+        ON DELETE SET NULL,
+    payload JSONB,
+    status TEXT DEFAULT 'pending'
+        CHECK (status IN ('pending', 'approved', 'rejected')),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_manager_requests_org
+ON manager_requests(organization_id);
 
 
 
@@ -169,6 +194,34 @@ CREATE TABLE dataset_metadata (
 
 CREATE INDEX idx_dataset_metadata_dataset
 ON dataset_metadata(dataset_id);
+
+
+
+-- ================================
+-- SHOWROOM FINANCIALS (Revenue / Expenditure / Salary tracking)
+-- ================================
+CREATE TABLE showroom_financials (
+    id SERIAL PRIMARY KEY,
+    showroom_id UUID NOT NULL
+        REFERENCES showrooms(id)
+        ON DELETE CASCADE,
+    dataset_id UUID UNIQUE NOT NULL
+        REFERENCES datasets(id)
+        ON DELETE CASCADE,
+    dataset_type TEXT DEFAULT 'other'
+        CHECK (dataset_type IN ('revenue', 'expenditure', 'salary', 'mixed', 'other')),
+    dataset_type_label TEXT,
+    revenue NUMERIC DEFAULT 0,
+    expenditure NUMERIC DEFAULT 0,
+    salary_expense NUMERIC DEFAULT 0,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_showroom_financials_showroom
+ON showroom_financials(showroom_id);
+
+CREATE INDEX idx_showroom_financials_dataset
+ON showroom_financials(dataset_id);
 
 
 

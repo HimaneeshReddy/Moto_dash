@@ -201,8 +201,26 @@ const Skeleton = styled.div`
   background-size: 200% 100%;
   animation: ${shimmerAnim} 1.4s infinite;
   border-radius: 14px;
-  height: ${p => p.h || "100px"};
+  height: ${p => p.$h || "100px"};
 `;
+
+/* ── Financial metrics on showroom cards ── */
+const FinanceRow = styled.div`
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px;
+  background: #f1f5f9; border-radius: 10px; overflow: hidden;
+`;
+const FMetric = styled.div`background: white; padding: 10px 8px; text-align: center;`;
+const FMetricVal = styled.div`font-size: 13px; font-weight: 700; color: ${p => p.color || "#1e293b"}; white-space: nowrap;`;
+const FMetricLabel = styled.div`font-size: 10px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.4px; margin-top: 2px;`;
+
+const fmtCurrency = (val) => {
+    const n = Number(val) || 0;
+    if (n === 0) return "—";
+    if (n >= 10_000_000) return `₹${(n / 10_000_000).toFixed(1)}Cr`;
+    if (n >= 100_000) return `₹${(n / 100_000).toFixed(1)}L`;
+    if (n >= 1_000) return `₹${(n / 1_000).toFixed(1)}K`;
+    return `₹${n.toFixed(0)}`;
+};
 
 export default function OwnerHome({ onOpenDashboard, setActivePage }) {
     const user = getUser();
@@ -278,13 +296,13 @@ export default function OwnerHome({ onOpenDashboard, setActivePage }) {
             {loading ? (
                 <>
                     <KpiRow>
-                        {[1,2,3,4].map(i => <Skeleton key={i} h="100px" />)}
+                        {[1,2,3,4].map(i => <Skeleton key={i} $h="100px" />)}
                     </KpiRow>
                     <OvGrid>
-                        {[1,2,3].map(i => <Skeleton key={i} h="240px" />)}
+                        {[1,2,3].map(i => <Skeleton key={i} $h="240px" />)}
                     </OvGrid>
                 </>
-            ) : !data ? (
+            ) : !data || !data.org ? (
                 <div style={{ textAlign: "center", marginTop: 60 }}>
                     <p style={{ color: "#94a3b8", marginBottom: 16 }}>Could not load overview.</p>
                     <button onClick={load} style={{ padding: "10px 22px", background: "#3457B2", color: "white", border: "none", borderRadius: 9, cursor: "pointer", fontWeight: 600 }}>Retry</button>
@@ -375,6 +393,23 @@ export default function OwnerHome({ onOpenDashboard, setActivePage }) {
                                                     </OvStat>
                                                 </OvStats>
 
+                                                {(Number(sr.total_revenue) > 0 || Number(sr.total_expenditure) > 0 || Number(sr.total_salary_expense) > 0) && (
+                                                    <FinanceRow>
+                                                        <FMetric>
+                                                            <FMetricVal color="#10b981">{fmtCurrency(sr.total_revenue)}</FMetricVal>
+                                                            <FMetricLabel>Revenue</FMetricLabel>
+                                                        </FMetric>
+                                                        <FMetric>
+                                                            <FMetricVal color="#ef4444">{fmtCurrency(sr.total_expenditure)}</FMetricVal>
+                                                            <FMetricLabel>Expenditure</FMetricLabel>
+                                                        </FMetric>
+                                                        <FMetric>
+                                                            <FMetricVal color="#f59e0b">{fmtCurrency(sr.total_salary_expense)}</FMetricVal>
+                                                            <FMetricLabel>Salary</FMetricLabel>
+                                                        </FMetric>
+                                                    </FinanceRow>
+                                                )}
+
                                                 <div>
                                                     <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#94a3b8", marginBottom: 5 }}>
                                                         <span>Data Volume</span>
@@ -433,7 +468,7 @@ export default function OwnerHome({ onOpenDashboard, setActivePage }) {
 
                     <DrawerBody>
                         {dashLoading ? (
-                            [1,2,3].map(i => <Skeleton key={i} h="72px" style={{ marginBottom: 12 }} />)
+                            [1,2,3].map(i => <Skeleton key={i} $h="72px" style={{ marginBottom: 12 }} />)
                         ) : dashboards.length === 0 ? (
                             <EmptyDrawer>
                                 <DashboardIcon style={{ fontSize: 44, color: "#e2e8f0", marginBottom: 12 }} />

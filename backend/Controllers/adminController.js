@@ -15,7 +15,7 @@ export const listShowrooms = async (req, res, next) => {
         const search = req.query.search?.trim() || "";
 
         let query = `
-             SELECT id, name, location, created_at
+             SELECT id, name, location, created_at, cover_image
              FROM showrooms
              WHERE organization_id = $1
                AND ($2 = '' OR name ILIKE $3 OR location ILIKE $3)
@@ -31,6 +31,24 @@ export const listShowrooms = async (req, res, next) => {
 
         const result = await pool.query(query, params);
         return res.json({ showrooms: result.rows });
+    } catch (err) { next(err); }
+};
+
+// PATCH /api/admin/showrooms/:id/cover — upload cover image
+export const uploadShowroomCover = async (req, res, next) => {
+    const { organizationId } = req.user;
+    const { id } = req.params;
+    if (!req.file) return res.status(400).json({ message: "No image uploaded." });
+    const imageUrl = `/uploads/${req.file.filename}`;
+    try {
+        const result = await pool.query(
+            `UPDATE showrooms SET cover_image = $1
+             WHERE id = $2 AND organization_id = $3
+             RETURNING id, cover_image`,
+            [imageUrl, id, organizationId]
+        );
+        if (!result.rows.length) return res.status(404).json({ message: "Showroom not found." });
+        return res.json({ showroom: result.rows[0] });
     } catch (err) { next(err); }
 };
 
@@ -178,10 +196,10 @@ export const sendInvite = async (req, res, next) => {
     }
 
     try {
-        // Fetch the organization domain/name
-        const orgRes = await pool.query(`SELECT name, domain FROM organizations WHERE id = $1`, [organizationId]);
+        // Fetch the organization name
+        const orgRes = await pool.query(`SELECT name FROM organizations WHERE id = $1`, [organizationId]);
         const orgName = orgRes.rows[0]?.name || "Your Organization";
-        const domain = orgRes.rows[0]?.domain || "company.app";
+        const domain = (orgRes.rows[0]?.name || "company").toLowerCase().replace(/[^a-z0-9]/g, "") + ".app";
 
         // Generate the company email ID
         const companyEmailPrefix = `${firstName.toLowerCase().trim()}.${lastName.toLowerCase().trim()}`.replace(/\s+/g, '');
@@ -372,9 +390,9 @@ export const approveRequest = async (req, res, next) => {
             const { contactEmail, firstName, lastName, role, showroom_id } = request.payload;
 
             // Generate company email
-            const orgRes = await pool.query(`SELECT name, domain FROM organizations WHERE id = $1`, [organizationId]);
+            const orgRes = await pool.query(`SELECT name FROM organizations WHERE id = $1`, [organizationId]);
             const orgName = orgRes.rows[0]?.name || "Your Organization";
-            const domain = orgRes.rows[0]?.domain || "company.app";
+            const domain = (orgRes.rows[0]?.name || "company").toLowerCase().replace(/[^a-z0-9]/g, "") + ".app";
             const prefix = `${firstName.toLowerCase().trim()}.${lastName.toLowerCase().trim()}`.replace(/\s+/g, '');
             let companyEmail = `${prefix}@${domain}`;
 
@@ -470,7 +488,10 @@ export const getOrgOverview = async (req, res, next) => {
                 COUNT(DISTINCT u.id) FILTER (WHERE u.status = 'active' AND u.role != 'owner') AS member_count,
                 COUNT(DISTINCT d.id) AS dataset_count,
                 COALESCE(SUM(d.row_count), 0) AS total_rows,
-                MAX(d.created_at) AS last_upload
+                MAX(d.created_at) AS last_upload,
+                COALESCE((SELECT SUM(sf.revenue) FROM showroom_financials sf WHERE sf.showroom_id = s.id), 0) AS total_revenue,
+                COALESCE((SELECT SUM(sf.expenditure) FROM showroom_financials sf WHERE sf.showroom_id = s.id), 0) AS total_expenditure,
+                COALESCE((SELECT SUM(sf.salary_expense) FROM showroom_financials sf WHERE sf.showroom_id = s.id), 0) AS total_salary_expense
              FROM showrooms s
              LEFT JOIN users u ON u.showroom_id = s.id AND u.organization_id = s.organization_id
              LEFT JOIN datasets d ON d.showroom_id = s.id

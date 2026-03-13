@@ -30,3 +30,15 @@ const fileFilter = (req, file, cb) => {
 };
 
 export const upload = multer({ storage, fileFilter });
+
+// ── Image uploader (for showroom cover images) ──
+const imageFilter = (req, file, cb) => {
+    const allowed = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (allowed.includes(ext) || file.mimetype.startsWith("image/")) {
+        cb(null, true);
+    } else {
+        cb(new Error("Only image files are allowed"), false);
+    }
+};
+export const imageUpload = multer({ storage, fileFilter: imageFilter, limits: { fileSize: 5 * 1024 * 1024 } });

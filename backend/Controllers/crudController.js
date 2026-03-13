@@ -1,16 +1,35 @@
 import pool from "../config/db.js";
 import format from "pg-format";
 
+const isShowroomScopedUser = (user) => ["manager", "analyst"].includes(user?.role);
+
+const getDatasetScope = (user, { alias = "", paramOffset = 0 } = {}) => {
+    const prefix = alias ? `${alias}.` : "";
+    const conditions = [`${prefix}organization_id = $${paramOffset + 1}`];
+    const params = [user.organizationId];
+
+    if (isShowroomScopedUser(user)) {
+        if (!user.showroomId) {
+            conditions.push("1 = 0");
+        } else {
+            params.push(user.showroomId);
+            conditions.push(`${prefix}showroom_id = $${paramOffset + params.length}`);
+        }
+    }
+
+    return { conditions, params };
+};
+
 // ─────────────────────────────────────────────────────────────────
 // GET /api/data/datasets — list all datasets for an org
 // ─────────────────────────────────────────────────────────────────
 export const listDatasets = async (req, res, next) => {
     try {
-        const { organizationId } = req.user;
+        const scope = getDatasetScope(req.user);
         const result = await pool.query(
             `SELECT id, name, storage_table_name, row_count, column_count, created_at
-             FROM datasets WHERE organization_id = $1 ORDER BY created_at DESC`,
-            [organizationId]
+             FROM datasets WHERE ${scope.conditions.join(" AND ")} ORDER BY created_at DESC`,
+            scope.params
         );
         return res.json({ datasets: result.rows });
     } catch (err) { next(err); }
@@ -22,16 +41,16 @@ export const listDatasets = async (req, res, next) => {
 // ─────────────────────────────────────────────────────────────────
 export const getDatasetRows = async (req, res, next) => {
     const { id } = req.params;
-    const { organizationId } = req.user;
     const page = parseInt(req.query.page) || 1;
     const limit = Math.min(parseInt(req.query.limit) || 50, 200);
     const search = req.query.search?.trim() || "";
     const offset = (page - 1) * limit;
 
     try {
+        const scope = getDatasetScope(req.user, { paramOffset: 1 });
         const meta = await pool.query(
-            `SELECT storage_table_name FROM datasets WHERE id = $1 AND organization_id = $2`,
-            [id, organizationId]
+            `SELECT storage_table_name FROM datasets WHERE id = $1 AND ${scope.conditions.join(" AND ")}`,
+            [id, ...scope.params]
         );
         if (meta.rows.length === 0) return res.status(404).json({ message: "Dataset not found." });
 
@@ -84,7 +103,6 @@ export const getDatasetRows = async (req, res, next) => {
 // ─────────────────────────────────────────────────────────────────
 export const addDatasetRow = async (req, res, next) => {
     const { id } = req.params;
-    const { organizationId } = req.user;
     const { values } = req.body;
 
     if (!values || typeof values !== "object") {
@@ -92,9 +110,10 @@ export const addDatasetRow = async (req, res, next) => {
     }
 
     try {
+        const scope = getDatasetScope(req.user, { paramOffset: 1 });
         const meta = await pool.query(
-            `SELECT storage_table_name FROM datasets WHERE id = $1 AND organization_id = $2`,
-            [id, organizationId]
+            `SELECT storage_table_name FROM datasets WHERE id = $1 AND ${scope.conditions.join(" AND ")}`,
+            [id, ...scope.params]
         );
         if (meta.rows.length === 0) return res.status(404).json({ message: "Dataset not found." });
 
@@ -118,7 +137,6 @@ export const addDatasetRow = async (req, res, next) => {
 // ─────────────────────────────────────────────────────────────────
 export const updateDatasetRow = async (req, res, next) => {
     const { id, rowId } = req.params;
-    const { organizationId } = req.user;
     const { values } = req.body;
 
     if (!values || typeof values !== "object" || Object.keys(values).length === 0) {
@@ -126,9 +144,10 @@ export const updateDatasetRow = async (req, res, next) => {
     }
 
     try {
+        const scope = getDatasetScope(req.user, { paramOffset: 1 });
         const meta = await pool.query(
-            `SELECT storage_table_name FROM datasets WHERE id = $1 AND organization_id = $2`,
-            [id, organizationId]
+            `SELECT storage_table_name FROM datasets WHERE id = $1 AND ${scope.conditions.join(" AND ")}`,
+            [id, ...scope.params]
         );
         if (meta.rows.length === 0) return res.status(404).json({ message: "Dataset not found." });
 
@@ -151,12 +170,12 @@ export const updateDatasetRow = async (req, res, next) => {
 // ─────────────────────────────────────────────────────────────────
 export const deleteDatasetRow = async (req, res, next) => {
     const { id, rowId } = req.params;
-    const { organizationId } = req.user;
 
     try {
+        const scope = getDatasetScope(req.user, { paramOffset: 1 });
         const meta = await pool.query(
-            `SELECT storage_table_name FROM datasets WHERE id = $1 AND organization_id = $2`,
-            [id, organizationId]
+            `SELECT storage_table_name FROM datasets WHERE id = $1 AND ${scope.conditions.join(" AND ")}`,
+            [id, ...scope.params]
         );
         if (meta.rows.length === 0) return res.status(404).json({ message: "Dataset not found." });
 
@@ -180,14 +199,14 @@ export const deleteDatasetRow = async (req, res, next) => {
 // ─────────────────────────────────────────────────────────────────
 export const getDatasetAnalysis = async (req, res, next) => {
     const { id } = req.params;
-    const { organizationId } = req.user;
     try {
+        const scope = getDatasetScope(req.user, { alias: "d", paramOffset: 1 });
         const result = await pool.query(`
             SELECT d.id, d.name, d.created_at, dm.metadata->'llm_analysis' AS llm_analysis
             FROM datasets d
             JOIN dataset_metadata dm ON dm.dataset_id = d.id
-            WHERE d.id = $1 AND d.organization_id = $2
-        `, [id, organizationId]);
+            WHERE d.id = $1 AND ${scope.conditions.join(" AND ")}
+        `, [id, ...scope.params]);
 
         if (result.rows.length === 0 || !result.rows[0].llm_analysis) {
             return res.status(404).json({ message: "No analysis found for this dataset. Please run an analysis first." });
@@ -202,9 +221,9 @@ export const getDatasetAnalysis = async (req, res, next) => {
 // GET /api/data/analyzed — list all datasets that have an LLM analysis
 // ─────────────────────────────────────────────────────────────────
 export const listAnalyzedDatasets = async (req, res, next) => {
-    const { organizationId } = req.user;
     const { search, showroom_id } = req.query;
     try {
+        const scope = getDatasetScope(req.user, { alias: "d" });
         let queryStr = `
             SELECT d.id, d.name, d.row_count, d.column_count, d.created_at,
                    d.updated_at,
@@ -212,12 +231,12 @@ export const listAnalyzedDatasets = async (req, res, next) => {
                    dm.metadata->>'thumbnail' AS thumbnail
             FROM datasets d
             LEFT JOIN dataset_metadata dm ON dm.dataset_id = d.id
-            WHERE d.organization_id = $1
+            WHERE ${scope.conditions.join(" AND ")}
               AND (dm.metadata->'llm_analysis') IS NOT NULL
         `;
-        const queryParams = [organizationId];
+        const queryParams = [...scope.params];
 
-        if (showroom_id) {
+        if (!isShowroomScopedUser(req.user) && showroom_id) {
             queryParams.push(showroom_id);
             queryStr += ` AND d.showroom_id = $${queryParams.length}`;
         }
@@ -241,7 +260,6 @@ export const listAnalyzedDatasets = async (req, res, next) => {
 // ─────────────────────────────────────────────────────────────────
 export const saveDatasetThumbnail = async (req, res, next) => {
     const { id } = req.params;
-    const { organizationId } = req.user;
     const { thumbnail } = req.body;
 
     if (!thumbnail || !thumbnail.startsWith('data:image')) {
@@ -249,10 +267,11 @@ export const saveDatasetThumbnail = async (req, res, next) => {
     }
 
     try {
+        const scope = getDatasetScope(req.user, { paramOffset: 1 });
         // Verify the dataset belongs to this org
         const check = await pool.query(
-            `SELECT id FROM datasets WHERE id = $1 AND organization_id = $2`,
-            [id, organizationId]
+            `SELECT id FROM datasets WHERE id = $1 AND ${scope.conditions.join(" AND ")}`,
+            [id, ...scope.params]
         );
         if (check.rows.length === 0) return res.status(404).json({ message: 'Dataset not found.' });
 
@@ -271,13 +290,13 @@ export const saveDatasetThumbnail = async (req, res, next) => {
 // ─────────────────────────────────────────────────────────────────
 export const saveLayout = async (req, res, next) => {
     const { id } = req.params;
-    const { organizationId } = req.user;
     const { viewMode, chartOrder, insightOrder } = req.body;
 
     try {
+        const scope = getDatasetScope(req.user, { paramOffset: 1 });
         const check = await pool.query(
-            `SELECT id FROM datasets WHERE id = $1 AND organization_id = $2`,
-            [id, organizationId]
+            `SELECT id FROM datasets WHERE id = $1 AND ${scope.conditions.join(" AND ")}`,
+            [id, ...scope.params]
         );
         if (check.rows.length === 0) return res.status(404).json({ message: 'Dataset not found.' });
 
@@ -297,15 +316,15 @@ export const saveLayout = async (req, res, next) => {
 // ─────────────────────────────────────────────────────────────────
 export const getLayout = async (req, res, next) => {
     const { id } = req.params;
-    const { organizationId } = req.user;
 
     try {
+        const scope = getDatasetScope(req.user, { alias: "d", paramOffset: 1 });
         const result = await pool.query(
             `SELECT dm.metadata->'dashboard_layout' AS layout
              FROM dataset_metadata dm
              JOIN datasets d ON d.id = dm.dataset_id
-             WHERE dm.dataset_id = $1 AND d.organization_id = $2`,
-            [id, organizationId]
+             WHERE dm.dataset_id = $1 AND ${scope.conditions.join(" AND ")}`,
+            [id, ...scope.params]
         );
         if (result.rows.length === 0) return res.status(404).json({ message: 'Dataset not found.' });
 
@@ -319,7 +338,6 @@ export const getLayout = async (req, res, next) => {
 // ─────────────────────────────────────────────────────────────────
 export const editDashboardItem = async (req, res, next) => {
     const { id } = req.params;
-    const { organizationId } = req.user;
     const { type, index, instruction } = req.body;
 
     if (!type || index === undefined || !instruction?.trim()) {
@@ -327,12 +345,13 @@ export const editDashboardItem = async (req, res, next) => {
     }
 
     try {
+        const scope = getDatasetScope(req.user, { alias: "d", paramOffset: 1 });
         const result = await pool.query(`
             SELECT d.name, dm.metadata
             FROM datasets d
             JOIN dataset_metadata dm ON d.id = dm.dataset_id
-            WHERE d.id = $1 AND d.organization_id = $2
-        `, [id, organizationId]);
+            WHERE d.id = $1 AND ${scope.conditions.join(" AND ")}
+        `, [id, ...scope.params]);
 
         if (result.rows.length === 0) return res.status(404).json({ message: 'Dataset not found.' });
 
@@ -355,7 +374,18 @@ export const editDashboardItem = async (req, res, next) => {
 
             systemPrompt = `You are a data analyst. Update a chart config based on the user's instruction.
 Available columns: ${columnSummary}
-Chart types: bar, line, area, pie, scatter, radar, composed, radialBar, treemap
+Choose the most appropriate chart for the dataset and selected columns. Prefer the clearest chart, not the fanciest one.
+Only use chart types supported by our dashboard renderer:
+- bar: compare values across categories
+- line: show trends over time or ordered sequences
+- area: show trends over time with magnitude emphasis
+- pie: show part-to-whole breakdowns with a small number of categories
+- scatter: show correlation between two numeric variables
+- radar: compare multivariate profiles across a small number of categories
+- composed: combine bar and line style comparisons when both views help
+- radialBar: show compact ranked or part-to-whole comparisons for a few categories
+- treemap: show many-category part-to-whole composition
+Use line or area when the x-axis is a date or ordered progression. Use bar by default for category comparison. Use scatter only when both axes are numeric. Use pie or radialBar only when composition is the main story and category count is low. Avoid complex charts when bar, line, or area would explain the data better.
 Return ONLY a JSON object: {"chart_type":"...","title":"...","x_axis_column":"...","y_axis_column":"...","description":"..."}`;
 
             userPrompt = `Current chart: ${JSON.stringify(currentChart)}\n\nUser instruction: "${instruction.trim()}"`;
@@ -435,11 +465,11 @@ Return ONLY a JSON object: {"type":"Insight","description":"A specific concrete 
 // ─────────────────────────────────────────────────────────────────
 export const deleteDataset = async (req, res, next) => {
     const { id } = req.params;
-    const { organizationId } = req.user;
     try {
+        const scope = getDatasetScope(req.user, { paramOffset: 1 });
         const meta = await pool.query(
-            `SELECT storage_table_name FROM datasets WHERE id = $1 AND organization_id = $2`,
-            [id, organizationId]
+            `SELECT storage_table_name FROM datasets WHERE id = $1 AND ${scope.conditions.join(" AND ")}`,
+            [id, ...scope.params]
         );
         if (meta.rows.length === 0) return res.status(404).json({ message: 'Dataset not found.' });
         const tableName = meta.rows[0].storage_table_name;
@@ -464,7 +494,6 @@ export const deleteDataset = async (req, res, next) => {
 // ─────────────────────────────────────────────────────────────────
 export const runInsightQuery = async (req, res, next) => {
     const { id } = req.params;
-    const { organizationId } = req.user;
     const { sql_query } = req.body;
 
     if (!sql_query) return res.status(400).json({ message: 'sql_query is required.' });
@@ -477,10 +506,11 @@ export const runInsightQuery = async (req, res, next) => {
     }
 
     try {
+        const scope = getDatasetScope(req.user, { paramOffset: 1 });
         // Look up the real storage table for this dataset
         const meta = await pool.query(
-            `SELECT storage_table_name FROM datasets WHERE id = $1 AND organization_id = $2`,
-            [id, organizationId]
+            `SELECT storage_table_name FROM datasets WHERE id = $1 AND ${scope.conditions.join(" AND ")}`,
+            [id, ...scope.params]
         );
         if (meta.rows.length === 0) return res.status(404).json({ message: 'Dataset not found.' });
 
@@ -510,7 +540,6 @@ export const runInsightQuery = async (req, res, next) => {
 // ─────────────────────────────────────────────────────────────────
 export const chatWithDataset = async (req, res, next) => {
     const { id } = req.params;
-    const { organizationId } = req.user;
     const { question } = req.body;
 
     if (!question || !question.trim()) {
@@ -518,13 +547,14 @@ export const chatWithDataset = async (req, res, next) => {
     }
 
     try {
+        const scope = getDatasetScope(req.user, { alias: "d", paramOffset: 1 });
         // 1. Fetch dataset info + metadata
         const datasetRes = await pool.query(
             `SELECT d.name, d.storage_table_name, dm.metadata
              FROM datasets d
              LEFT JOIN dataset_metadata dm ON dm.dataset_id = d.id
-             WHERE d.id = $1 AND d.organization_id = $2`,
-            [id, organizationId]
+             WHERE d.id = $1 AND ${scope.conditions.join(" AND ")}`,
+            [id, ...scope.params]
         );
         if (datasetRes.rows.length === 0) {
             return res.status(404).json({ message: 'Dataset not found.' });

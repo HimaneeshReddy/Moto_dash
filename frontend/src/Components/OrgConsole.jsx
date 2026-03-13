@@ -13,9 +13,10 @@ import CancelIcon from "@mui/icons-material/Cancel";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import DashboardIcon from "@mui/icons-material/Dashboard";
 import OpenInNewIcon from "@mui/icons-material/OpenInNew";
+import CameraAltIcon from "@mui/icons-material/CameraAlt";
 
 import {
-    listShowrooms, createShowroom, updateShowroom, deleteShowroom,
+    listShowrooms, createShowroom, updateShowroom, deleteShowroom, uploadShowroomCover,
     listMembers, removeMember, reassignMemberShowroom,
     listInvites, sendInvite, cancelInvite, getUser,
     listRequests, approveRequest, rejectRequest,
@@ -62,14 +63,32 @@ const Btn = styled.button`
 `;
 
 /* ── Card Grid (Showrooms) ── */
-const CardGrid = styled.div`display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 18px;`;
+const CardGrid = styled.div`display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 18px;`;
 const Card = styled.div`
-  background: white; border: 1px solid #e2e8f0; border-radius: 14px; padding: 22px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.04); display: flex; flex-direction: column; gap: 8px;
+  background: white; border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06); display: flex; flex-direction: column;
+  transition: box-shadow 0.2s, transform 0.2s;
+  &:hover { box-shadow: 0 8px 24px rgba(52,87,178,0.12); transform: translateY(-2px); }
 `;
-const CardName = styled.h3`font-size: 17px; color: #1e293b; margin: 0;`;
-const CardSub = styled.p`font-size: 13px; color: #94a3b8; margin: 0;`;
-const CardActions = styled.div`display: flex; gap: 8px; margin-top: 12px;`;
+const CardCover = styled.div`
+  position: relative; height: 140px; overflow: hidden;
+  background: ${p => p.img ? `url(${p.img}) center/cover no-repeat` : 'linear-gradient(135deg, #3457B2 0%, #6b8dff 100%)'};
+  display: flex; align-items: center; justify-content: center;
+`;
+const CoverUploadBtn = styled.label`
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,0); cursor: pointer; transition: background 0.2s;
+  &:hover { background: rgba(0,0,0,0.35); }
+  &:hover svg { opacity: 1; transform: scale(1); }
+  svg { opacity: 0; transform: scale(0.8); transition: all 0.2s; color: white !important; font-size: 36px !important; }
+`;
+const CardBody = styled.div`padding: 18px 20px 20px; display: flex; flex-direction: column; gap: 8px; flex: 1;`;
+const CardName = styled.h3`font-size: 17px; color: #1e293b; margin: 0; font-weight: 700;`;
+const LocationPill = styled.span`
+  display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 20px;
+  background: #eff6ff; color: #3457B2; font-size: 12px; font-weight: 600; width: fit-content;
+`;
+const CardActions = styled.div`display: flex; gap: 8px; margin-top: 6px;`;
 
 /* ── Table (Members / Invites) ── */
 const TableWrap = styled.div`background: white; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;`;
@@ -194,6 +213,19 @@ export default function OrgConsole({ onOpenDashboard, setActivePage }) {
         if (!window.confirm("Delete this showroom? All related data may be affected.")) return;
         try { await deleteShowroom(id); showToast("Showroom deleted!"); fetchShowrooms(); }
         catch (e) { showToast(e.message, true); }
+    };
+
+    const [uploadingCoverId, setUploadingCoverId] = useState(null);
+    const handleCoverUpload = async (srId, file) => {
+        const fd = new FormData();
+        fd.append("cover", file);
+        setUploadingCoverId(srId);
+        try {
+            const r = await uploadShowroomCover(srId, fd);
+            setShowrooms(prev => prev.map(s => s.id === srId ? { ...s, cover_image: r.showroom.cover_image } : s));
+            showToast("Cover image updated!");
+        } catch (e) { showToast(e.message, true); }
+        finally { setUploadingCoverId(null); }
     };
 
     /* ── Members ── */
@@ -331,20 +363,47 @@ export default function OrgConsole({ onOpenDashboard, setActivePage }) {
                         <CardGrid>
                             {showrooms.map(sr => (
                                 <Card key={sr.id}>
-                                    <CardName>{sr.name}</CardName>
-                                    <CardSub>{sr.location || "No location set"}</CardSub>
-                                    <CardSub>{new Date(sr.created_at).toLocaleDateString()}</CardSub>
-                                    <CardActions>
-                                        <Btn onClick={() => openShowroomDashboards(sr)} style={{ flex: 1, justifyContent: "center" }}>
-                                            <DashboardIcon fontSize="small" /> Dashboards
-                                        </Btn>
+                                    <CardCover img={sr.cover_image ? `http://localhost:5000${sr.cover_image}` : null}>
                                         {user?.role === "owner" && (
                                             <>
-                                                <Btn onClick={() => openEditSr(sr)}><EditIcon fontSize="small" /></Btn>
-                                                <Btn danger onClick={() => handleDeleteSr(sr.id)}><DeleteOutlineIcon fontSize="small" /></Btn>
+                                                <CoverUploadBtn htmlFor={`cover-${sr.id}`} title="Upload cover image">
+                                                    <CameraAltIcon />
+                                                </CoverUploadBtn>
+                                                <input
+                                                    id={`cover-${sr.id}`}
+                                                    type="file"
+                                                    accept="image/*"
+                                                    style={{ display: "none" }}
+                                                    onChange={e => e.target.files[0] && handleCoverUpload(sr.id, e.target.files[0])}
+                                                />
                                             </>
                                         )}
-                                    </CardActions>
+                                        {uploadingCoverId === sr.id && (
+                                            <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontSize: 13, fontWeight: 600, gap: 8, pointerEvents: "none" }}>
+                                                Uploading...
+                                            </div>
+                                        )}
+                                        {!sr.cover_image && (
+                                            <div style={{ pointerEvents: "none" }}>
+                                                <StoreIcon style={{ fontSize: 48, color: "rgba(255,255,255,0.35)" }} />
+                                            </div>
+                                        )}
+                                    </CardCover>
+                                    <CardBody>
+                                        <CardName>{sr.name}</CardName>
+                                        {sr.location && <LocationPill>📍 {sr.location}</LocationPill>}
+                                        <CardActions>
+                                            <Btn onClick={() => openShowroomDashboards(sr)} style={{ flex: 1, justifyContent: "center" }}>
+                                                <DashboardIcon fontSize="small" /> Dashboards
+                                            </Btn>
+                                            {user?.role === "owner" && (
+                                                <>
+                                                    <Btn onClick={() => openEditSr(sr)}><EditIcon fontSize="small" /></Btn>
+                                                    <Btn danger onClick={() => handleDeleteSr(sr.id)}><DeleteOutlineIcon fontSize="small" /></Btn>
+                                                </>
+                                            )}
+                                        </CardActions>
+                                    </CardBody>
                                 </Card>
                             ))}
                         </CardGrid>

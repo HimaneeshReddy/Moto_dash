@@ -167,13 +167,15 @@ const DashboardPage = () => {
               </OptionCard>
             )}
 
-            <OptionCard
-              active={activePage === "dashboards" || activePage === "dashboard"}
-              onClick={() => setActivePage("dashboards")}
-            >
-              <IconCard><DashboardIcon /></IconCard>
-              Dashboards
-            </OptionCard>
+            {user?.role !== "owner" && (
+              <OptionCard
+                active={activePage === "dashboards" || activePage === "dashboard"}
+                onClick={() => setActivePage("dashboards")}
+              >
+                <IconCard><DashboardIcon /></IconCard>
+                Dashboards
+              </OptionCard>
+            )}
 
             <OptionCard
               active={activePage === "help"}

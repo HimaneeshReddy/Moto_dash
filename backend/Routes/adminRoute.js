@@ -1,7 +1,8 @@
 import express from "express";
 import { verifyToken, verifyOwner, verifyManager } from "../Middleware/authMiddleware.js";
+import { imageUpload } from "../Middleware/uploadMiddleware.js";
 import {
-    listShowrooms, createShowroom, updateShowroom, deleteShowroom,
+    listShowrooms, createShowroom, updateShowroom, deleteShowroom, uploadShowroomCover,
     listMembers, removeMember, reassignShowroom,
     listInvites, sendInvite, cancelInvite,
     listRequests, approveRequest, rejectRequest,
@@ -18,6 +19,7 @@ router.get("/showrooms", verifyManager, listShowrooms);
 router.post("/showrooms", verifyOwner, createShowroom);       // Only owner creates
 router.put("/showrooms/:id", verifyOwner, updateShowroom);    // Only owner edits
 router.delete("/showrooms/:id", verifyOwner, deleteShowroom); // Only owner deletes
+router.patch("/showrooms/:id/cover", verifyOwner, imageUpload.single("cover"), uploadShowroomCover);
 
 // ── Members ────────────────────────────────────────────────────
 router.get("/members", verifyManager, listMembers);
