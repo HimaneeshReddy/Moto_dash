@@ -20,6 +20,101 @@ const getDatasetScope = (user, { alias = "", paramOffset = 0 } = {}) => {
     return { conditions, params };
 };
 
+const generateJsonWithLLM = async ({ systemPrompt, userPrompt, numPredict = 600, temperature = 0.1, timeoutMs = 180000 }) => {
+    const provider = (process.env.LLM_PROVIDER || "ollama").toLowerCase();
+
+    const callOllama = async () => {
+        const OLLAMA_URL = process.env.OLLAMA_URL || "http://localhost:11434";
+        const llmRes = await fetch(`${OLLAMA_URL}/api/generate`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                model: process.env.OLLAMA_MODEL || "llama3",
+                prompt: userPrompt,
+                system: systemPrompt,
+                stream: false,
+                format: "json",
+                keep_alive: "15m",
+                options: { num_ctx: 4096, num_predict: numPredict, temperature }
+            })
+        });
+
+        if (!llmRes.ok) {
+            throw new Error(`Ollama returned ${llmRes.status}`);
+        }
+
+        const llmData = await llmRes.json();
+        if (!llmData?.response) {
+            throw new Error("Ollama returned an empty response.");
+        }
+        return llmData.response;
+    };
+
+    const callGemini = async () => {
+        const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+        const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-1.5-flash";
+
+        if (!GEMINI_API_KEY) {
+            throw new Error("GEMINI_API_KEY is not set.");
+        }
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+        try {
+            const geminiRes = await fetch(
+                `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(GEMINI_MODEL)}:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`,
+                {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        systemInstruction: { parts: [{ text: systemPrompt }] },
+                        contents: [{ role: "user", parts: [{ text: userPrompt }] }],
+                        generationConfig: {
+                            responseMimeType: "application/json",
+                            temperature
+                        }
+                    }),
+                    signal: controller.signal
+                }
+            );
+
+            if (!geminiRes.ok) {
+                const errText = await geminiRes.text();
+                throw new Error(`Gemini returned ${geminiRes.status}: ${errText}`);
+            }
+
+            const geminiData = await geminiRes.json();
+            const text = geminiData?.candidates?.[0]?.content?.parts
+                ?.map((p) => p.text || "")
+                .join("")
+                .trim();
+
+            if (!text) {
+                throw new Error("Gemini returned an empty response.");
+            }
+
+            return text;
+        } finally {
+            clearTimeout(timeoutId);
+        }
+    };
+
+    if (provider === "gemini") {
+        try {
+            return await callGemini();
+        } catch (geminiErr) {
+            if (process.env.LLM_FALLBACK_OLLAMA === "false") {
+                throw geminiErr;
+            }
+            console.warn(`[LLM] Gemini failed, falling back to Ollama: ${geminiErr.message}`);
+            return await callOllama();
+        }
+    }
+
+    return await callOllama();
+};
+
 // ─────────────────────────────────────────────────────────────────
 // GET /api/data/datasets — list all datasets for an org
 // ─────────────────────────────────────────────────────────────────
@@ -406,32 +501,16 @@ Return ONLY a JSON object: {"type":"Insight","description":"A specific concrete 
             return res.status(400).json({ message: 'type must be "chart" or "insight".' });
         }
 
-        const OLLAMA_URL = process.env.OLLAMA_URL || 'http://localhost:11434';
-        let llmRes;
-        try {
-            llmRes = await fetch(`${OLLAMA_URL}/api/generate`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    model: process.env.OLLAMA_MODEL || 'llama3',
-                    prompt: userPrompt,
-                    system: systemPrompt,
-                    stream: false,
-                    format: 'json',
-                    keep_alive: '15m',
-                    options: { num_ctx: 4096, num_predict: 300, temperature: 0.2 }
-                })
-            });
-        } catch (fetchErr) {
-            throw new Error(`Failed to connect to Ollama: ${fetchErr.message}`);
-        }
-
-        if (!llmRes.ok) throw new Error(`Ollama returned ${llmRes.status}`);
-
-        const llmData = await llmRes.json();
+        const llmRaw = await generateJsonWithLLM({
+            systemPrompt,
+            userPrompt,
+            numPredict: 300,
+            temperature: 0.2,
+            timeoutMs: 120000
+        });
         let updated;
-        try { updated = JSON.parse(llmData.response); }
-        catch { return res.status(500).json({ message: 'LLM returned invalid JSON.', raw: llmData.response }); }
+        try { updated = JSON.parse(llmRaw); }
+        catch { return res.status(500).json({ message: 'LLM returned invalid JSON.', raw: llmRaw }); }
 
         // Merge updated item into the full analysis
         const newAnalysis = { ...analysis };
@@ -453,8 +532,8 @@ Return ONLY a JSON object: {"type":"Insight","description":"A specific concrete 
         return res.json({ success: true, updated, analysis: newAnalysis });
 
     } catch (err) {
-        if (err.message?.includes('ECONNREFUSED') || err.message?.includes('11434')) {
-            return res.status(503).json({ message: 'Ollama is not running. Please ensure Ollama is accessible on port 11434.' });
+        if (err.message?.includes('ECONNREFUSED') || err.message?.includes('11434') || err.message?.toLowerCase().includes('gemini')) {
+            return res.status(503).json({ message: 'LLM provider is not reachable. Check Ollama/Gemini configuration and try again.' });
         }
         next(err);
     }
@@ -592,7 +671,11 @@ RULES:
 3. Text matching: use ILIKE for filters (e.g. WHERE region ILIKE 'North'). Never use = for user-supplied text values.
 4. Multiple conditions: use AND / OR as needed (e.g. WHERE region ILIKE 'North' AND CAST("year" AS NUMERIC) = 2023).
 5. Never reference the "_id" column. Only generate SELECT statements.
-6. Aggregates (SUM/COUNT/AVG/MAX/MIN): every non-aggregated SELECT column must be in GROUP BY.
+6. Aggregates (SUM/COUNT/AVG/MAX/MIN): every non-aggregated SELECT column MUST be in GROUP BY.
+    - If SELECT has dimension + aggregate, always GROUP BY the dimension columns.
+    - Never select raw measure columns (e.g. bikes_booked, revenue, amount) in ranked/summary queries unless aggregated.
+    - Bad: SELECT model, bikes_booked FROM table ORDER BY SUM(...) ...
+    - Good: SELECT model, SUM(CAST(bikes_booked AS NUMERIC)) AS total_booked FROM table GROUP BY model ORDER BY total_booked DESC
 7. Every computed value needs an AS alias: COUNT(*) AS total_rows, SUM(...) AS total_units.
 8. COUNT(*) vs SUM: 
    - COUNT(*) = counts rows/transactions → use for "how many records / orders / entries"
@@ -600,9 +683,15 @@ RULES:
 9. Top / most / best / highest → ORDER BY alias DESC LIMIT 1
    Lowest / worst / least / minimum → ORDER BY alias ASC LIMIT 1
    Top N / list → ORDER BY alias DESC LIMIT N (default 10 if unspecified)
+    - For questions like "which model sold/booked the most", output dimension + aggregated metric with GROUP BY dimension.
 10. "Show / list / find / display" without aggregation → SELECT * ... LIMIT 20
 11. Distinct count: "how many unique X" → COUNT(DISTINCT "col") AS unique_count
 12. Every {{placeholder}} in description MUST exactly match an AS alias in sql_query.
+13. Ranking queries must be deterministic: include ORDER BY aggregate alias and LIMIT.
+14. Before finalizing SQL, self-check:
+     - Are all non-aggregated selected columns present in GROUP BY?
+     - Are numeric operations CAST to NUMERIC?
+     - Is every computed metric aliased?
 
 OUTPUT — respond with ONLY this JSON, no markdown:
 {"description": "One sentence answering the question with {{alias}} for computed values.", "sql_query": "Complete PostgreSQL SELECT query."}
@@ -636,47 +725,26 @@ Q: How many unique products are there?
 Q: Top 5 regions by total units sold
 {"description":"Here are the top 5 regions by total units sold.","sql_query":"SELECT region, SUM(CAST(units_sold AS NUMERIC)) AS total_units FROM \\"${storage_table_name}\\" GROUP BY region ORDER BY total_units DESC LIMIT 5"}
 
+Q: Which bike model is booked the most?
+{"description":"{{bike_model}} is booked the most with {{total_booked}} bookings.","sql_query":"SELECT bike_model, SUM(CAST(bikes_booked AS NUMERIC)) AS total_booked FROM \\\"${storage_table_name}\\\" GROUP BY bike_model ORDER BY total_booked DESC LIMIT 1"}
+
+Q: Which model has highest bookings in 2024?
+{"description":"{{bike_model}} has the highest bookings in 2024 with {{total_booked}} bookings.","sql_query":"SELECT bike_model, SUM(CAST(bikes_booked AS NUMERIC)) AS total_booked FROM \\\"${storage_table_name}\\\" WHERE CAST(date AS DATE) >= '2024-01-01' AND CAST(date AS DATE) <= '2024-12-31' GROUP BY bike_model ORDER BY total_booked DESC LIMIT 1"}
+
 Q: Show sales from the North region in 2023
 {"description":"Here are the sales from the North region in 2023.","sql_query":"SELECT * FROM \\"${storage_table_name}\\" WHERE region ILIKE 'North' AND CAST(date AS DATE) >= '2023-01-01' AND CAST(date AS DATE) <= '2023-12-31' LIMIT 20"}
 `;
 
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 180000); // 180s timeout
-
-        let llmRes;
-        try {
-            llmRes = await fetch(`${OLLAMA_URL}/api/generate`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    model: process.env.OLLAMA_MODEL || 'llama3',
-                    prompt: `User question: ${question}`,
-                    system: systemPrompt,
-                    stream: false,
-                    format: 'json',
-                    keep_alive: '15m',     // keep model loaded between chat messages
-                    options: {
-                        num_predict: 600,  // chat only needs description + one SQL query
-                        temperature: 0.1   // deterministic output = more reliable SQL
-                    }
-                }),
-                signal: controller.signal
-            });
-        } catch (fetchErr) {
-            if (fetchErr.name === 'AbortError') {
-                throw new Error("Ollama request timed out after 3 minutes. This usually happens if the model is slow or system resources are high.");
-            }
-            throw new Error(`Failed to connect to Ollama: ${fetchErr.message}`);
-        } finally {
-            clearTimeout(timeoutId);
-        }
-
-        if (!llmRes.ok) throw new Error(`Ollama returned ${llmRes.status}`);
-        const llmData = await llmRes.json();
-
         let parsed;
-        try { parsed = JSON.parse(llmData.response); }
-        catch { return res.status(500).json({ message: 'LLM returned invalid JSON.', raw: llmData.response }); }
+        const llmRaw = await generateJsonWithLLM({
+            systemPrompt,
+            userPrompt: `User question: ${question}`,
+            numPredict: 600,
+            temperature: 0.1,
+            timeoutMs: 180000
+        });
+        try { parsed = JSON.parse(llmRaw); }
+        catch { return res.status(500).json({ message: 'LLM returned invalid JSON.', raw: llmRaw }); }
 
         let { description, sql_query } = parsed;
 
